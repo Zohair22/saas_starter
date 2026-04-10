@@ -1,0 +1,559 @@
+{
+  "info": {
+    "name": "SaaS Starter API",
+    "_postman_id": "7c6f6ce4-98f8-4f80-ae28-7eb0fd7ab001",
+    "description": "Collection for SaaS Starter v1 APIs (auth, tenant, membership, project, billing).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo User\",\n  \"email\": \"demo.user@example.com\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/register"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.environment.set('auth_token', json.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/login"
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/me"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "Create Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Inc\",\n  \"slug\": \"{{tenant_slug}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants"
+          }
+        },
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/tenants"
+          }
+        },
+        {
+          "name": "Show Tenant",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/tenants/{{tenant_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Memberships (Tenant Scoped)",
+      "item": [
+        {
+          "name": "List Memberships",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/memberships"
+          }
+        },
+        {
+          "name": "Create Membership",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{member_user_id}},\n  \"role\": \"member\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/memberships"
+          }
+        },
+        {
+          "name": "Show Membership",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/memberships/{{membership_id}}"
+          }
+        },
+        {
+          "name": "Update Membership Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/memberships/{{membership_id}}"
+          }
+        },
+        {
+          "name": "Delete Membership",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/memberships/{{membership_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invitations",
+      "item": [
+        {
+          "name": "Create Invitation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.environment.set('invitation_token', json.token);",
+                  "}",
+                  "if (json.id) {",
+                  "  pm.environment.set('invitation_id', String(json.id));",
+                  "}",
+                  "if (json.email) {",
+                  "  pm.environment.set('invitation_email', json.email);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{invitation_email}}\",\n  \"role\": \"member\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/invitations"
+          }
+        },
+        {
+          "name": "Preview Invitation",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/v1/invitations/{{invitation_token}}"
+          }
+        },
+        {
+          "name": "Accept Invitation",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{invited_name}}\",\n  \"password\": \"{{invited_password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/invitations/{{invitation_token}}/accept"
+          }
+        },
+        {
+          "name": "Revoke Invitation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/invitations/{{invitation_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects (Tenant Scoped)",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/projects"
+          }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Project Alpha\",\n  \"description\": \"Initial project\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/projects"
+          }
+        },
+        {
+          "name": "Show Project",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/projects/{{project_id}}"
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Project Alpha v2\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/projects/{{project_id}}"
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/projects/{{project_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing (Tenant Scoped)",
+      "item": [
+        {
+          "name": "List Plans + Current Subscription",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/plans"
+          }
+        },
+        {
+          "name": "Subscribe Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_code\": \"pro\",\n  \"payment_method\": \"{{stripe_payment_method}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscribe"
+          }
+        },
+        {
+          "name": "Swap Subscription",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_code\": \"enterprise\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/subscription"
+          }
+        },
+        {
+          "name": "Cancel Subscription",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/subscription"
+          }
+        },
+        {
+          "name": "Stripe Webhook - Subscription Updated",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Stripe-Signature",
+                "value": "{{stripe_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_test_123\",\n  \"type\": \"customer.subscription.updated\",\n  \"data\": {\n    \"object\": {\n      \"customer\": \"{{stripe_customer_id}}\",\n      \"items\": {\n        \"data\": [\n          {\n            \"price\": {\n              \"id\": \"{{stripe_price_id}}\"\n            }\n          }\n        ]\n      }\n    }\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/webhook"
+          }
+        },
+        {
+          "name": "Stripe Webhook - Payment Failed",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Stripe-Signature",
+                "value": "{{stripe_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_payment_failed_123\",\n  \"type\": \"invoice.payment_failed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"in_test_failed_123\",\n      \"customer\": \"{{stripe_customer_id}}\"\n    }\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/webhook"
+          }
+        },
+        {
+          "name": "Stripe Webhook - Invoice Paid",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Stripe-Signature",
+                "value": "{{stripe_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_invoice_paid_123\",\n  \"type\": \"invoice.paid\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"in_test_paid_123\",\n      \"customer\": \"{{stripe_customer_id}}\"\n    }\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/webhook"
+          }
+        },
+        {
+          "name": "Stripe Webhook - Subscription Deleted",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Stripe-Signature",
+                "value": "{{stripe_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_subscription_deleted_123\",\n  \"type\": \"customer.subscription.deleted\",\n  \"data\": {\n    \"object\": {\n      \"customer\": \"{{stripe_customer_id}}\",\n      \"cancel_at_period_end\": true,\n      \"current_period_end\": 1893456000\n    }\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/billing/webhook"
+          }
+        }
+      ]
+    }
+  ]
+}

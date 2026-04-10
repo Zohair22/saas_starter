@@ -1,0 +1,10 @@
+{
+    "Tenant": true,
+    "User": true,
+    "Project": true,
+    "Billing": true,
+    "Membership": true,
+    "Task": true,
+    "ActivityLog": true,
+    "AuditLog": true
+}

@@ -1,0 +1,11 @@
+{
+    "name": "Membership",
+    "alias": "membership",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Membership\\Providers\\MembershipServiceProvider"
+    ],
+    "files": []
+}
