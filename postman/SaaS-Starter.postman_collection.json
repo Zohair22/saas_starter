@@ -90,10 +90,98 @@
       ]
     },
     {
+      "name": "API Tokens",
+      "item": [
+        {
+          "name": "List Tokens",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/tokens"
+          }
+        },
+        {
+          "name": "Create Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.environment.set('api_token', json.token);",
+                  "}",
+                  "",
+                  "// If the API returns only the token string, you still need token id",
+                  "// to revoke it. Get it from 'List Tokens' response.",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"postman\",\n  \"abilities\": [\"*\"]\n}"
+            },
+            "url": "{{base_url}}/api/v1/tokens"
+          }
+        },
+        {
+          "name": "Revoke Token",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/v1/tokens/{{api_token_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Show User",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/v1/users/{{user_id}}"
+          }
+        }
+      ]
+    },
+    {
       "name": "Tenants",
       "item": [
         {
           "name": "Create Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const tenantId = json?.data?.id;",
+                  "if (tenantId) {",
+                  "  pm.environment.set('tenant_id', String(tenantId));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -120,6 +208,30 @@
           "name": "Show Tenant",
           "request": {
             "method": "GET",
+            "url": "{{base_url}}/api/v1/tenants/{{tenant_id}}"
+          }
+        },
+        {
+          "name": "Update Tenant",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Inc v2\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/tenants/{{tenant_id}}"
+          }
+        },
+        {
+          "name": "Delete Tenant",
+          "request": {
+            "method": "DELETE",
             "url": "{{base_url}}/api/v1/tenants/{{tenant_id}}"
           }
         }
@@ -318,6 +430,21 @@
         },
         {
           "name": "Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const projectId = json?.data?.id;",
+                  "if (projectId) {",
+                  "  pm.environment.set('project_id', String(projectId));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -387,6 +514,143 @@
       ]
     },
     {
+      "name": "Tasks (Tenant Scoped)",
+      "item": [
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/projects/{{project_id}}/tasks"
+          }
+        },
+        {
+          "name": "Create Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const taskId = json?.data?.id;",
+                  "if (taskId) {",
+                  "  pm.environment.set('task_id', String(taskId));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"First task\",\n  \"status\": \"pending\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/projects/{{project_id}}/tasks"
+          }
+        },
+        {
+          "name": "Show Task",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/projects/{{project_id}}/tasks/{{task_id}}"
+          }
+        },
+        {
+          "name": "Update Task",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/projects/{{project_id}}/tasks/{{task_id}}"
+          }
+        },
+        {
+          "name": "Delete Task",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/projects/{{project_id}}/tasks/{{task_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Activity Logs (Tenant Scoped)",
+      "item": [
+        {
+          "name": "List Activity Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/activity-logs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit Logs (Tenant Scoped)",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/audit-logs"
+          }
+        }
+      ]
+    },
+    {
       "name": "Billing (Tenant Scoped)",
       "item": [
         {
@@ -400,6 +664,19 @@
               }
             ],
             "url": "{{base_url}}/api/v1/billing/plans"
+          }
+        },
+        {
+          "name": "Usage Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/billing/usage"
           }
         },
         {
