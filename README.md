@@ -6,6 +6,20 @@ Production-grade modular multi-tenant SaaS backend built with Laravel 13 and nWi
 
 A complete tenant-first SaaS engine covering identity, billing, domain logic, compliance, and developer platform features — all wired through an event-driven, service-layered architecture.
 
+## Project Brief
+
+SaaS Starter is a backend foundation for building multi-tenant SaaS products where each customer account (tenant) has isolated data, controlled member access, subscription billing, and usage limits.
+
+It is designed for teams that want to ship SaaS APIs faster without rebuilding core platform concerns like tenant isolation, role-based access, billing flows, audit/compliance trails, and token-based integrations.
+
+## What It Serves
+
+- Startups building B2B SaaS platforms with tenant-aware APIs
+- Product teams that need Stripe subscription lifecycle + webhook handling
+- Engineering teams requiring compliance-grade audit history and activity feeds
+- SaaS apps with plan-based limits (users/projects/features) and tenant-level throttling
+- Teams that prefer a modular monolith architecture with clear service boundaries
+
 ### Core SaaS Engine
 
 - Multi-tenant data isolation via global Eloquent scopes
@@ -26,6 +40,7 @@ A complete tenant-first SaaS engine covering identity, billing, domain logic, co
 - Audit logs — compliance-grade immutable trail across all sensitive actions
 - API token management — Sanctum personal access tokens with named abilities
 - Usage metering dashboard — real-time limits, utilization, and history per feature
+- Standardized API exception responses — consistent JSON error payloads and status codes
 
 ## Modules
 
