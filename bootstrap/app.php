@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Validation\ValidationException;
 use Modules\Billing\Http\Middleware\EnsureFeatureLimit;
 use Modules\Billing\Http\Middleware\EnsureTenantApiRateLimit;
@@ -27,6 +29,17 @@ return Application::configure(basePath: dirname(__DIR__))
         attributes: ['middleware' => ['auth:sanctum']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(append: [
+            HandleInertiaRequests::class,
+        ]);
+
+        // Resolve tenant context before implicit model binding, so tenant-scoped
+        // models can be bound correctly on API routes.
+        $middleware->prependToPriorityList(
+            before: SubstituteBindings::class,
+            prepend: IdentifyTenant::class,
+        );
+
         $middleware->alias([
             'tenant' => IdentifyTenant::class,
             'tenant.member' => EnsureTenantMembership::class,

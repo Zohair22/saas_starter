@@ -116,6 +116,6 @@ class ProjectTenantIsolationTest extends TestCase
             ->withHeader('X-Tenant-ID', (string) $tenantA->id)
             ->getJson('/api/v1/projects/'.$projectB->id);
 
-        $response->assertForbidden();
+        $response->assertNotFound();
     }
 }

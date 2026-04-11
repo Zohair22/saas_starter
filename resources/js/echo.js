@@ -1,20 +1,10 @@
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
+import { getAuthHeaders } from './session';
 
 window.Pusher = Pusher;
 
-const bearerToken = window.localStorage.getItem('auth_token');
-const tenantId = window.localStorage.getItem('tenant_id');
-
-const authHeaders = {};
-
-if (bearerToken) {
-    authHeaders.Authorization = `Bearer ${bearerToken}`;
-}
-
-if (tenantId) {
-    authHeaders['X-Tenant-ID'] = tenantId;
-}
+const authHeaders = getAuthHeaders();
 
 window.Echo = new Echo({
     broadcaster: 'pusher',
