@@ -25,6 +25,7 @@ class MembershipRepository implements MembershipRepositoryInterface
     public function create(CreateMembershipData $data): Membership
     {
         $membership = Membership::create([
+            'tenant_id' => $data->tenantId,
             'user_id' => $data->userId,
             'role' => $data->role,
         ])->load('user:id,name,email');

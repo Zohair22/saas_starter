@@ -85,6 +85,10 @@ Route::get('/app/tenant-settings', function () {
     return Inertia::render('Settings/Tenant');
 })->name('app.settings.tenant');
 
+Route::get('/app/tenants/create', function () {
+    return Inertia::render('Tenants/Create');
+})->name('app.tenants.create');
+
 Route::get('/app/onboarding', function () {
     return Inertia::render('Onboarding/Index');
 })->name('app.onboarding.index');

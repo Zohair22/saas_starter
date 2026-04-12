@@ -493,6 +493,7 @@ export default function Dashboard() {
     const session = useAppSession();
     const { isLoading, tenantId, tenants, user, permissions } = session;
     const currentTenant = tenants.find((tenant) => String(tenant.id) === String(tenantId));
+    const hasTenant = tenants.length > 0;
 
     const [dataLoading, setDataLoading] = useState(true);
     const [projects, setProjects] = useState([]);
@@ -765,6 +766,46 @@ export default function Dashboard() {
                         <div key={i} className="h-28 animate-pulse rounded-2xl border border-slate-200 bg-white/80 shadow-sm" />
                     ))}
                 </div>
+            </AppLayout>
+        );
+    }
+
+    if (!hasTenant) {
+        return (
+            <AppLayout title="Dashboard" session={session}>
+                <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-amber-50 to-sky-50 p-6 shadow-sm sm:rounded-3xl sm:p-8">
+                    <div className="pointer-events-none absolute -top-20 right-0 h-52 w-52 rounded-full bg-amber-200/40 blur-3xl" />
+                    <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+                        <div>
+                            <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase sm:text-xs">
+                                Workspace setup
+                            </p>
+                            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                                Create your first workspace to activate the app.
+                            </h2>
+                            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+                                Projects, billing, memberships, and activity feeds all unlock once you create a tenant. Pick a clear name and slug now so your workspace is ready for invites and project setup.
+                            </p>
+                            <div className="mt-6 flex flex-wrap gap-3">
+                                <Link
+                                    href="/app/tenants/create"
+                                    className="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                                >
+                                    Create workspace
+                                </Link>
+                            </div>
+                        </div>
+
+                        <aside className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">What happens next</p>
+                            <ul className="mt-4 space-y-3 text-sm text-slate-700">
+                                <li>Create a workspace with a shareable slug.</li>
+                                <li>Invite teammates and assign roles.</li>
+                                <li>Open your first project and start task execution.</li>
+                            </ul>
+                        </aside>
+                    </div>
+                </section>
             </AppLayout>
         );
     }

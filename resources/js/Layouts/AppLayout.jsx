@@ -14,6 +14,7 @@ export default function AppLayout({ title, children, session = {} }) {
     const canManageTenantSettings = Boolean(permissions.canManageTenantSettings);
     const isTenantOwner = Boolean(permissions.isTenantOwner);
     const isSuperAdmin = Boolean(user?.is_super_admin);
+    const canCreateTenant = Boolean(user);
     const isPermissionMetadataMissing = hasTenantContext
         && !permissions.isTenantMember
         && !permissions.canViewBilling
@@ -89,6 +90,15 @@ export default function AppLayout({ title, children, session = {} }) {
                                         ))}
                                     </select>
                                 </label>
+                            ) : null}
+
+                            {canCreateTenant ? (
+                                <Link
+                                    href="/app/tenants/create"
+                                    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                                >
+                                    + New workspace
+                                </Link>
                             ) : null}
 
                             <div className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 lg:block">

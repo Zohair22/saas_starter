@@ -43,6 +43,35 @@ export const setTenantContext = (tenantId) => {
     window.axios.defaults.headers.common['X-Tenant-ID'] = String(tenantId);
 };
 
+export const clearTenantContext = () => {
+    window.localStorage.removeItem(TENANT_KEY);
+    delete window.axios.defaults.headers.common['X-Tenant-ID'];
+};
+
+export const completeAuthentication = async ({ token, tenantId = null }) => {
+    localClearSession();
+    setSession({ token });
+
+    if (tenantId) {
+        setTenantContext(tenantId);
+        window.location.href = '/app';
+        return;
+    }
+
+    clearTenantContext();
+
+    const tenantsResponse = await window.axios.get('/api/v1/tenants');
+    const firstTenantId = tenantsResponse?.data?.data?.[0]?.id;
+
+    if (firstTenantId) {
+        setTenantContext(firstTenantId);
+        window.location.href = '/app';
+        return;
+    }
+
+    window.location.href = '/app/tenants/create';
+};
+
 export const localClearSession = () => {
     window.localStorage.removeItem(TOKEN_KEY);
     window.localStorage.removeItem(TENANT_KEY);

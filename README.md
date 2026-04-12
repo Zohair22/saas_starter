@@ -1,16 +1,28 @@
 # SaaS Starter
 
-Production-grade modular multi-tenant SaaS backend built with Laravel 13 and nWidart modules.
+Production-grade modular multi-tenant SaaS app and API built with Laravel 13, Inertia React, and nWidart modules.
 
 ## Overview
 
-A complete tenant-first SaaS engine covering identity, billing, domain logic, compliance, and developer platform features — all wired through an event-driven, service-layered architecture.
+A complete tenant-first SaaS engine covering authentication, workspace creation, billing, product operations, compliance, admin tooling, analytics, notifications, and developer platform features — all wired through an event-driven, service-layered architecture.
+
+## Documentation
+
+Project documentation is now organized in the `docs` directory:
+
+- [Documentation Home](docs/README.md)
+- [Getting Started](docs/getting-started.md)
+- [How to Use the App](docs/how-to-use-app.md)
+- [Role-Based Walkthrough](docs/role-based-walkthrough.md)
+- [Development Workflow](docs/development-workflow.md)
+- [API Overview](docs/api-overview.md)
+- [Architecture Notes](docs/architecture.md)
 
 ## Project Brief
 
-SaaS Starter is a backend foundation for building multi-tenant SaaS products where each customer account (tenant) has isolated data, controlled member access, subscription billing, and usage limits.
+SaaS Starter is an application foundation for building multi-tenant SaaS products where each customer account (tenant) has isolated data, controlled member access, subscription billing, usage limits, and an operator-facing web app.
 
-It is designed for teams that want to ship SaaS APIs faster without rebuilding core platform concerns like tenant isolation, role-based access, billing flows, audit/compliance trails, and token-based integrations.
+It is designed for teams that want to ship SaaS APIs and internal product operations faster without rebuilding core platform concerns like tenant isolation, role-based access, workspace onboarding, billing flows, audit/compliance trails, notifications, realtime updates, and token-based integrations.
 
 ## What It Serves
 
@@ -23,6 +35,7 @@ It is designed for teams that want to ship SaaS APIs faster without rebuilding c
 ### Core SaaS Engine
 
 - Multi-tenant data isolation via global Eloquent scopes
+- Workspace creation and switching with tenant-aware session bootstrap
 - Team membership with `owner / admin / member` roles
 - Invitation workflow with token-based acceptance
 - Stripe billing + webhooks with idempotent event processing
@@ -32,6 +45,8 @@ It is designed for teams that want to ship SaaS APIs faster without rebuilding c
 ### Product Modules
 
 - Projects and Tasks (tenant-scoped, policy-guarded)
+- Notifications center with database + broadcast delivery
+- Onboarding, dashboard, tenant settings, and admin operations UI
 - Activity logs — human-readable feed driven by domain events
 - Queued jobs via Laravel Horizon for async billing side effects
 
@@ -40,7 +55,27 @@ It is designed for teams that want to ship SaaS APIs faster without rebuilding c
 - Audit logs — compliance-grade immutable trail across all sensitive actions
 - API token management — Sanctum personal access tokens with named abilities
 - Usage metering dashboard — real-time limits, utilization, and history per feature
+- Realtime task activity broadcasting via Laravel Echo presence channels
+- Super-admin dashboard with user impersonation
 - Standardized API exception responses — consistent JSON error payloads and status codes
+
+## In-App Experience
+
+The shipped web app already includes the core operational screens needed to run a tenant-based SaaS product:
+
+- Authentication: login, registration, logout, authenticated profile access
+- Workspace lifecycle: create workspace, switch active tenant, update tenant settings, transfer ownership, delete tenant
+- Dashboard: KPI cards, alerts, onboarding progress, usage snapshots, live activity, quick actions
+- Projects: create, list, filter, view, and edit tenant-scoped projects
+- Tasks: create, list, filter, view, edit, and monitor realtime task events within projects
+- Memberships: list members, manage roles, invite teammates, revoke or accept invitations
+- Billing: review plans, subscribe, swap plan, cancel, recover payment issues, inspect usage and utilization
+- Notifications: view database notifications, mark read, mark all read, clear read notifications, receive broadcast updates in real time
+- Logs: human-readable activity feed plus compliance-oriented audit log views
+- Analytics: landing analytics report plus in-app analytics page
+- Admin: platform-level dashboard and super-admin impersonation flow
+
+The app now also supports first-run workspace onboarding: newly authenticated users with zero tenants are directed into the workspace creation flow automatically.
 
 ## Modules
 
@@ -58,10 +93,13 @@ It is designed for teams that want to ship SaaS APIs faster without rebuilding c
 ## Tech Stack
 
 - PHP 8.3 / Laravel 13
+- Inertia.js v3 / React 19
+- Tailwind CSS v4
 - MySQL (primary store)
 - Redis (queues, cache, sessions, rate limiting)
 - Laravel Sanctum (API authentication + personal access tokens)
 - Laravel Cashier Stripe (tenant-level billing)
+- Laravel Echo (realtime notifications and task broadcasting)
 - Laravel Horizon (queue monitoring and worker management)
 - nWidart/laravel-modules (modular monolith structure)
 - PHPUnit 12
@@ -130,6 +168,14 @@ Key files: `Modules/Tenant/app/Http/Middleware/IdentifyTenant.php`, `Modules/Ten
 - `tenant.member` middleware enforces minimum role on protected routes
 - Full CRUD with policy checks per role level
 
+### Authentication, Session Bootstrap, and Workspace Creation
+
+- Register, login, logout, and authenticated `me` profile endpoints
+- Session bootstrap endpoint hydrates the frontend with user, tenants, active tenant, membership, and capabilities
+- Web app includes a dedicated create-workspace flow with explicit slug entry
+- Post-auth flow automatically routes users without any tenant into workspace creation
+- Tenant switching persists active tenant context for subsequent API calls
+
 ### Invitations
 
 - Owner/Admin can invite by email with role assignment
@@ -194,6 +240,25 @@ Key files: `Modules/Tenant/app/Http/Middleware/IdentifyTenant.php`, `Modules/Ten
 - Supports `months` query param (1-12) for history range control
 - Usage history is explicitly tenant-scoped and member-viewable (`viewPlans` policy)
 - Powered by `FeatureLimitService` + `UsageCounterService`
+
+### Notifications
+
+- Database notifications stored per user and exposed through tenant-aware UI flows
+- Endpoints support listing, marking one as read, marking all as read, clearing read notifications, and deleting specific notifications
+- Project, task, and billing activity can fan out into user-facing workspace notifications
+- Broadcast delivery is enabled so the notifications screen updates in real time
+
+### Admin Operations
+
+- Super-admin dashboard exposes top-line metrics for tenants and users
+- Admin flow supports impersonating another user and inheriting their tenant context safely
+- Recent tenants and billing-status breakdowns are surfaced in the web app admin view
+
+### Realtime Collaboration
+
+- Task created, updated, and completed events broadcast immediately to tenant project presence channels
+- Dashboard and task screens can subscribe to live project channels via Laravel Echo
+- Private user channels power real-time notifications for the authenticated user
 
 ### Landing Analytics
 
@@ -292,6 +357,7 @@ vendor/bin/pint --dirty --format agent
 | -------- | -------------------------- | --------------------------- |
 | `POST`   | `/api/v1/logout`           | Revoke current token        |
 | `GET`    | `/api/v1/me`               | Authenticated user profile  |
+| `GET`    | `/api/v1/session/bootstrap`| Frontend session hydration  |
 | `GET`    | `/api/v1/users/{user}`     | View user                   |
 | `DELETE` | `/api/v1/users/{user}`     | Delete user                 |
 | `GET`    | `/api/v1/tokens`           | List personal access tokens |
@@ -304,6 +370,7 @@ vendor/bin/pint --dirty --format agent
 | ---------------------- | -------------------------- | ----------------------------------- |
 | `GET`                  | `/api/v1/tenants`          | List tenants for authenticated user |
 | `POST`                 | `/api/v1/tenants`          | Create tenant                       |
+| `POST`                 | `/api/v1/tenants/{tenant}/transfer-ownership` | Transfer tenant ownership |
 | `GET/PUT/PATCH/DELETE` | `/api/v1/tenants/{tenant}` | Manage tenant                       |
 
 ### Tenant-Protected (`auth:sanctum` + `tenant` + `tenant.member` + rate limit)
@@ -328,6 +395,37 @@ vendor/bin/pint --dirty --format agent
 | `GET`                  | `/api/v1/billing/usage`                   | Usage metering dashboard (`months` supported)  |
 | `GET`                  | `/api/v1/activity-logs`                   | Tenant activity feed                           |
 | `GET`                  | `/api/v1/audit-logs`                      | Compliance audit trail                         |
+
+### Notifications & Admin (`auth:sanctum`)
+
+| Method   | Path                                | Description                                |
+| -------- | ----------------------------------- | ------------------------------------------ |
+| `GET`    | `/api/v1/notifications`             | List notifications for authenticated user  |
+| `PATCH`  | `/api/v1/notifications/read-all`    | Mark all notifications as read             |
+| `PATCH`  | `/api/v1/notifications/{id}/read`   | Mark one notification as read              |
+| `DELETE` | `/api/v1/notifications/read`        | Clear read notifications                   |
+| `DELETE` | `/api/v1/notifications/{id}`        | Delete one notification                    |
+| `GET`    | `/api/v1/admin/dashboard`           | Super-admin metrics dashboard              |
+| `POST`   | `/api/v1/admin/impersonate/{user}`  | Super-admin user impersonation             |
+
+## Web App Routes
+
+The operator-facing Inertia app currently exposes these main routes:
+
+- `/login`, `/register`
+- `/app`
+- `/app/tenants/create`
+- `/app/projects`, `/app/projects/create`, `/app/projects/{id}`, `/app/projects/{id}/edit`
+- `/app/projects/{projectId}/tasks`, `/app/projects/{projectId}/tasks/create`
+- `/app/projects/{projectId}/tasks/{taskId}`, `/app/projects/{projectId}/tasks/{taskId}/edit`
+- `/app/billing`
+- `/app/memberships`
+- `/app/logs`, `/app/audit-logs`, `/app/activity-logs`
+- `/app/analytics`
+- `/app/settings`, `/app/tenant-settings`
+- `/app/onboarding`
+- `/app/notifications`
+- `/app/admin`
 
 ### Web Tracking / Analytics
 
