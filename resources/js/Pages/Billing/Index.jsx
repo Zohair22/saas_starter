@@ -403,6 +403,9 @@ export default function BillingIndex() {
     const subscriptionCreatedAt = formatDate(subscription?.created_at);
     const trialEndsAt = formatDate(subscription?.trial_ends_at);
     const isPaidPlan = Boolean(currentPlan?.is_paid);
+    const hasPlans = plans.length > 0;
+    const selectedPlan = plans.find((plan) => plan.code === planCode) ?? null;
+    const hasSelectedPlan = Boolean(selectedPlan);
 
     const statusBadgeClass = (() => {
         if (subscriptionStatus === 'active') {
@@ -491,7 +494,7 @@ export default function BillingIndex() {
                                         </span>
                                     ) : (
                                         <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                                            No subscription
+                                            No paid subscription
                                         </span>
                                     )}
                                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${isPaidPlan ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
@@ -617,100 +620,133 @@ export default function BillingIndex() {
                         <h2 className="text-base font-semibold text-slate-900">Plans</h2>
                         <p className="mt-1 text-sm text-slate-600">Compare plans and subscribe or switch at any time.</p>
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                            {plans.map((plan) => {
-                                const isCurrent = currentPlanCode === plan.code;
-                                const isTarget = planCode === plan.code && !isCurrent;
+                        {hasPlans ? (
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                {plans.map((plan) => {
+                                    const isCurrent = currentPlanCode === plan.code;
+                                    const isTarget = planCode === plan.code && !isCurrent;
 
-                                return (
-                                    <button
-                                        key={plan.id}
-                                        type="button"
-                                        onClick={() => setPlanCode(plan.code)}
-                                        className={`rounded-xl border p-4 text-left transition ${
-                                            isCurrent
-                                                ? 'border-slate-800 bg-slate-900 text-white'
-                                                : isTarget
-                                                    ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400'
-                                                    : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-semibold">{plan.name}</span>
-                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                                                isCurrent ? 'bg-white/20 text-white' : plan.is_paid ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'
-                                            }`}>
-                                                {isCurrent ? 'Current' : plan.is_paid ? 'Paid' : 'Free'}
-                                            </span>
-                                        </div>
-                                        <dl className="mt-3 space-y-1 text-xs">
-                                            <div className="flex justify-between">
-                                                <dt className={isCurrent ? 'text-slate-300' : 'text-slate-500'}>Users</dt>
-                                                <dd className="font-medium">{formatLimit(plan.max_users)}</dd>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <dt className={isCurrent ? 'text-slate-300' : 'text-slate-500'}>Projects</dt>
-                                                <dd className="font-medium">{formatLimit(plan.max_projects)}</dd>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <dt className={isCurrent ? 'text-slate-300' : 'text-slate-500'}>API / min</dt>
-                                                <dd className="font-medium">{formatLimit(plan.api_rate_limit)}</dd>
-                                            </div>
-                                        </dl>
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {canManageBilling ? (
-                            <form onSubmit={handleSubscribe} className="mt-5 space-y-4 border-t border-slate-100 pt-5">
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <div>
-                                        <label className="mb-1 block text-sm font-medium text-slate-700">Selected plan</label>
-                                        <select
-                                            value={planCode}
-                                            onChange={(event) => setPlanCode(event.target.value)}
-                                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                    return (
+                                        <button
+                                            key={plan.id}
+                                            type="button"
+                                            onClick={() => setPlanCode(plan.code)}
+                                            className={`rounded-xl border p-4 text-left transition ${
+                                                isCurrent
+                                                    ? 'border-slate-800 bg-slate-900 text-white'
+                                                    : isTarget
+                                                        ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400'
+                                                        : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                                            }`}
                                         >
-                                            {plans.map((plan) => (
-                                                <option key={plan.id} value={plan.code}>
-                                                    {plan.name} ({plan.code})
-                                                </option>
-                                            ))}
-                                        </select>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm font-semibold">{plan.name}</span>
+                                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                                                    isCurrent ? 'bg-white/20 text-white' : plan.is_paid ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'
+                                                }`}>
+                                                    {isCurrent ? 'Current' : plan.is_paid ? 'Paid' : 'Free'}
+                                                </span>
+                                            </div>
+                                            <dl className="mt-3 space-y-1 text-xs">
+                                                <div className="flex justify-between">
+                                                    <dt className={isCurrent ? 'text-slate-300' : 'text-slate-500'}>Users</dt>
+                                                    <dd className="font-medium">{formatLimit(plan.max_users)}</dd>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <dt className={isCurrent ? 'text-slate-300' : 'text-slate-500'}>Projects</dt>
+                                                    <dd className="font-medium">{formatLimit(plan.max_projects)}</dd>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <dt className={isCurrent ? 'text-slate-300' : 'text-slate-500'}>API / min</dt>
+                                                    <dd className="font-medium">{formatLimit(plan.api_rate_limit)}</dd>
+                                                </div>
+                                            </dl>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                No billing plans are configured for this workspace yet. Add plans in billing configuration, then refresh this page.
+                            </div>
+                        )}
+
+                        {canManageBilling && hasPlans ? (
+                            <form onSubmit={handleSubscribe} className="mt-5 border-t border-slate-100 pt-5">
+                                <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                        <div>
+                                            <label className="mb-1 block text-sm font-medium text-slate-700">Selected plan</label>
+                                            <select
+                                                value={planCode}
+                                                onChange={(event) => setPlanCode(event.target.value)}
+                                                disabled={!hasPlans}
+                                                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
+                                            >
+                                                {!hasPlans ? (
+                                                    <option value="">No plans available</option>
+                                                ) : null}
+                                                {plans.map((plan) => (
+                                                    <option key={plan.id} value={plan.code}>
+                                                        {plan.name} ({plan.code})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="mb-1 block text-sm font-medium text-slate-700">Payment method</label>
+                                            <input
+                                                type="text"
+                                                value={paymentMethod}
+                                                onChange={(event) => setPaymentMethod(event.target.value)}
+                                                placeholder="pm_xxx (leave blank to use default)"
+                                                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                                            />
+                                        </div>
+                                        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Plan preview</p>
+                                            {hasSelectedPlan ? (
+                                                <div className="mt-1 space-y-0.5 text-xs text-slate-600">
+                                                    <p className="text-sm font-semibold text-slate-900">{selectedPlan.name}</p>
+                                                    <p>Users: {formatLimit(selectedPlan.max_users)}</p>
+                                                    <p>Projects: {formatLimit(selectedPlan.max_projects)}</p>
+                                                    <p>API / min: {formatLimit(selectedPlan.api_rate_limit)}</p>
+                                                </div>
+                                            ) : (
+                                                <p className="mt-1 text-xs text-slate-500">Select a plan to preview its limits.</p>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="mb-1 block text-sm font-medium text-slate-700">Payment method</label>
-                                        <input
-                                            type="text"
-                                            value={paymentMethod}
-                                            onChange={(event) => setPaymentMethod(event.target.value)}
-                                            placeholder="pm_xxx (leave blank to use default)"
-                                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                                        />
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="submit"
+                                            disabled={!hasSelectedPlan}
+                                            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {hasActiveSubscription ? 'Create new subscription' : 'Subscribe'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleSwap}
+                                            disabled={!hasActiveSubscription || !hasSelectedPlan || currentPlanCode === planCode}
+                                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            Swap to selected plan
+                                        </button>
                                     </div>
+
+                                    <p className="text-xs text-slate-500">
+                                        {hasActiveSubscription
+                                            ? 'Choose a plan and click Swap to change your active subscription, or Subscribe to start an additional subscription lifecycle.'
+                                            : 'Choose a plan and click Subscribe to start billing for this tenant.'}
+                                    </p>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                        type="submit"
-                                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                                    >
-                                        {hasActiveSubscription ? 'Create new subscription' : 'Subscribe'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleSwap}
-                                        disabled={!hasActiveSubscription}
-                                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        Swap to selected plan
-                                    </button>
-                                </div>
-                                <p className="text-xs text-slate-500">
-                                    Click a plan card to select it, then use <em>Swap to selected plan</em> for in-place upgrades / downgrades,
-                                    or <em>Subscribe</em> to start a new subscription lifecycle.
-                                </p>
                             </form>
+                        ) : canManageBilling ? (
+                            <p className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                Billing actions are unavailable because no plans are configured yet.
+                            </p>
                         ) : (
                             <p className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
                                 Plan details are visible to all members. Only owner/admin can change subscriptions.
@@ -822,7 +858,7 @@ export default function BillingIndex() {
                                 ))}
                             </dl>
                         ) : (
-                            <p className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">No active subscription found.</p>
+                            <p className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">No active paid subscription found.</p>
                         )}
                     </section>
 

@@ -667,7 +667,8 @@ export default function Dashboard() {
     // Derived values
     const projectCount = projects.length;
     const memberCount = memberships.length;
-    const planName = usage?.plan?.name ?? (billing?.subscription ? 'Active plan' : 'No plan');
+    const hasPaidSubscription = Boolean(billing?.subscription);
+    const planName = usage?.plan?.name ?? 'Workspace tier';
     const userUtilization = usage?.utilization?.max_users ?? null;
     const projUtilization = usage?.utilization?.max_projects ?? null;
     const userUsage = usage?.usage?.max_users ?? 0;
@@ -733,8 +734,8 @@ export default function Dashboard() {
 
     // Smart alerts
     const alerts = [];
-    if (!dataLoading && canManageBilling && !billing?.subscription) {
-        alerts.push({ type: 'info', message: 'No active subscription \u2014 choose a plan to unlock full access.', href: '/app/billing', cta: 'View plans' });
+    if (!dataLoading && canManageBilling && !hasPaidSubscription) {
+        alerts.push({ type: 'info', message: 'No active paid subscription. Choose a plan if you want paid billing features.', href: '/app/billing', cta: 'View plans' });
     }
     if (!dataLoading && canManageBilling && ['past_due', 'incomplete', 'unpaid'].includes(String(billing?.subscription?.stripe_status ?? ''))) {
         alerts.push({ type: 'warning', message: 'Payment failed. Update your billing method to avoid service disruption.', href: '/app/billing', cta: 'Fix payment' });
@@ -894,9 +895,9 @@ export default function Dashboard() {
                     loading={dataLoading}
                 />
                 <KpiCard
-                    label="Current plan"
+                    label="Current tier"
                     value={dataLoading ? '\u2014' : planName}
-                    sub={billing?.subscription ? 'Subscription active' : 'No active subscription'}
+                    sub={hasPaidSubscription ? 'Paid subscription active' : 'No paid subscription'}
                     href="/app/billing"
                     loading={dataLoading}
                 />
@@ -999,7 +1000,9 @@ export default function Dashboard() {
                                 {dataLoading ? '\u2014' : planName}
                             </p>
                             <p className="mt-0.5 text-sm text-slate-500">
-                                Next billing date: {billing?.subscription?.ends_at ? new Date(billing.subscription.ends_at).toLocaleDateString() : 'Not available'}
+                                {hasPaidSubscription
+                                    ? `Next billing date: ${billing?.subscription?.ends_at ? new Date(billing.subscription.ends_at).toLocaleDateString() : 'Not available'}`
+                                    : 'No paid subscription active'}
                             </p>
                             <div className="mt-3 space-y-2">
                                 <UsageRow label="Projects" usage={projUsage} limit={projLimit} />
@@ -1010,7 +1013,7 @@ export default function Dashboard() {
                                 href="/app/billing"
                                 className="mt-4 inline-flex min-h-9 w-full items-center justify-center rounded-lg bg-slate-900 text-xs font-semibold text-white transition hover:bg-slate-800"
                             >
-                                Upgrade plan &rarr;
+                                {hasPaidSubscription ? 'Manage subscription \u2192' : 'Choose plan \u2192'}
                             </Link>
                         </>
                     ) : (
