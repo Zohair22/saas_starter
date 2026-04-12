@@ -28,6 +28,10 @@ class InertiaFrontendBootstrapTest extends TestCase
             ->assertOk()
             ->assertSee('id="app"', false);
 
+        $this->get('/app/tenants/create')
+            ->assertOk()
+            ->assertSee('id="app"', false);
+
         $this->get('/app/projects/1')
             ->assertOk()
             ->assertSee('id="app"', false);

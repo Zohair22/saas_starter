@@ -70,7 +70,7 @@ curl -X POST "$BASE_URL/api/v1/tenants" \
   -H "Accept: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Acme Inc"}'
+  -d '{"name":"Acme Inc","slug":"acme-inc"}'
 ```
 
 List your tenants:

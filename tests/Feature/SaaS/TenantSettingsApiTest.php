@@ -14,6 +14,36 @@ class TenantSettingsApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_creating_tenant_creates_owner_membership_and_lists_it_for_owner(): void
+    {
+        $owner = User::factory()->create();
+
+        Sanctum::actingAs($owner);
+
+        $response = $this->postJson('/api/v1/tenants', [
+            'name' => 'Acme Create',
+            'slug' => 'acme-create',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.name', 'Acme Create')
+            ->assertJsonPath('data.slug', 'acme-create')
+            ->assertJsonPath('data.owner_id', $owner->id);
+
+        $tenantId = (int) $response->json('data.id');
+
+        $this->assertDatabaseHas('memberships', [
+            'tenant_id' => $tenantId,
+            'user_id' => $owner->id,
+            'role' => MembershipRole::Owner->value,
+        ]);
+
+        $this->getJson('/api/v1/tenants')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tenantId);
+    }
+
     public function test_admin_can_update_tenant_name_and_slug(): void
     {
         [$tenant, $admin] = $this->createTenantWithMember(MembershipRole::Admin);

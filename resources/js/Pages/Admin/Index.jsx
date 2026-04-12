@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import InlineNotice from '../../Components/InlineNotice';
 import AppLayout from '../../Layouts/AppLayout';
 import useAppSession from '../../hooks/useAppSession';
-import { setSession, setTenantContext } from '../../session';
+import { completeAuthentication } from '../../session';
 
 export default function AdminPage() {
     const session = useAppSession();
@@ -43,13 +43,7 @@ export default function AdminPage() {
                 return;
             }
 
-            setSession({ token });
-
-            if (tenantId) {
-                setTenantContext(tenantId);
-            }
-
-            window.location.href = '/app';
+            await completeAuthentication({ token, tenantId });
         } catch (requestError) {
             setError(requestError?.response?.data?.message ?? 'Unable to impersonate user.');
         }

@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { useState } from 'react';
 import InlineNotice from '../../Components/InlineNotice';
+import { completeAuthentication } from '../../session';
 
 export default function Register() {
     const [name, setName] = useState('');
@@ -23,7 +24,18 @@ export default function Register() {
                 password_confirmation: passwordConfirmation,
             });
 
-            window.location.href = '/login';
+            const loginResponse = await window.axios.post('/api/v1/login', {
+                email,
+                password,
+            });
+            const token = loginResponse?.data?.token;
+
+            if (!token) {
+                setMessage('Account created, but automatic sign-in failed. Please sign in manually.');
+                return;
+            }
+
+            await completeAuthentication({ token });
         } catch (error) {
             setMessage(error?.response?.data?.message || 'Registration failed.');
         } finally {

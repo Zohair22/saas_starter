@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { useState } from 'react';
 import InlineNotice from '../../Components/InlineNotice';
-import { setSession, setTenantContext } from '../../session';
+import { completeAuthentication } from '../../session';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -23,16 +23,7 @@ export default function Login() {
                 return;
             }
 
-            setSession({ token });
-
-            const tenantsResponse = await window.axios.get('/api/v1/tenants');
-            const firstTenantId = tenantsResponse?.data?.data?.[0]?.id;
-
-            if (firstTenantId) {
-                setTenantContext(firstTenantId);
-            }
-
-            window.location.href = '/app';
+            await completeAuthentication({ token });
         } catch (error) {
             setMessage(error?.response?.data?.message || 'Login failed.');
         } finally {
