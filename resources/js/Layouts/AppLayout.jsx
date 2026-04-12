@@ -4,10 +4,16 @@ import { clearSession } from '../session';
 export default function AppLayout({ title, children, session = {} }) {
     const { tenantId, tenants = [], switchTenant, user, permissions = {} } = session;
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    const currentTenant = tenants.find((tenant) => String(tenant.id) === String(tenantId));
+    const isWriteLocked = Boolean(currentTenant?.lifecycle?.is_write_locked);
+    const billingStatus = currentTenant?.billing_status ?? null;
     const hasTenantContext = Boolean(tenantId || tenants.length > 0);
     const canViewBilling = Boolean(permissions.canViewBilling) || hasTenantContext;
     const canViewMemberships = Boolean(permissions.canViewMemberships) || hasTenantContext;
     const canViewApp = Boolean(permissions.isTenantMember) || hasTenantContext;
+    const canManageTenantSettings = Boolean(permissions.canManageTenantSettings);
+    const isTenantOwner = Boolean(permissions.isTenantOwner);
+    const isSuperAdmin = Boolean(user?.is_super_admin);
     const isPermissionMetadataMissing = hasTenantContext
         && !permissions.isTenantMember
         && !permissions.canViewBilling
@@ -18,8 +24,13 @@ export default function AppLayout({ title, children, session = {} }) {
         { label: 'Projects', href: '/app/projects' },
         canViewBilling ? { label: 'Billing', href: '/app/billing' } : null,
         canViewMemberships ? { label: 'Members', href: '/app/memberships' } : null,
+        canViewApp ? { label: 'Onboarding', href: '/app/onboarding' } : null,
+        canViewApp ? { label: 'Notifications', href: '/app/notifications' } : null,
         canViewApp ? { label: 'Logs', href: '/app/logs' } : null,
         canViewApp ? { label: 'Analytics', href: '/app/analytics' } : null,
+        canViewApp ? { label: 'Profile', href: '/app/settings' } : null,
+        canManageTenantSettings || isTenantOwner ? { label: 'Tenant', href: '/app/tenant-settings' } : null,
+        isSuperAdmin ? { label: 'Admin', href: '/app/admin' } : null,
     ].filter(Boolean);
 
     const isActive = (href) => {
@@ -119,6 +130,29 @@ export default function AppLayout({ title, children, session = {} }) {
             </header>
 
             <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+                {isWriteLocked ? (
+                    <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 shadow-sm">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-rose-700 uppercase">Workspace is read-only</p>
+                                <p className="mt-1 text-sm text-rose-900">
+                                    Billing status is {billingStatus || 'restricted'}. Writes are blocked until billing is recovered.
+                                </p>
+                            </div>
+                            {canViewBilling ? (
+                                <Link
+                                    href="/app/billing"
+                                    className="inline-flex items-center justify-center rounded-lg bg-rose-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-800"
+                                >
+                                    Recover billing
+                                </Link>
+                            ) : (
+                                <span className="text-xs font-medium text-rose-700">Contact your owner/admin to recover billing.</span>
+                            )}
+                        </div>
+                    </div>
+                ) : null}
+
                 <div className="mb-6 rounded-2xl border border-slate-200 bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
                     <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
                 </div>

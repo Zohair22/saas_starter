@@ -43,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant' => IdentifyTenant::class,
             'tenant.member' => EnsureTenantMembership::class,
+            'tenant.lifecycle' => 'Modules\\Tenant\\Http\\Middleware\\EnsureTenantLifecycleAccess',
             'feature.limit' => EnsureFeatureLimit::class,
             'tenant.api.rate' => EnsureTenantApiRateLimit::class,
         ]);

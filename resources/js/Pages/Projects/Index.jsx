@@ -7,6 +7,65 @@ import { CardSkeleton, TableSkeleton } from '../../Components/LoadingSkeleton';
 import useAppSession from '../../hooks/useAppSession';
 import useToast from '../../hooks/useToast';
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const formatProjectUpdateAge = (value) => {
+    if (!value) {
+        return 'Unknown';
+    }
+
+    const timestamp = new Date(value).getTime();
+
+    if (Number.isNaN(timestamp)) {
+        return 'Unknown';
+    }
+
+    const diffDays = Math.floor((Date.now() - timestamp) / DAY_IN_MS);
+
+    if (diffDays <= 0) {
+        return 'Today';
+    }
+
+    if (diffDays === 1) {
+        return '1 day ago';
+    }
+
+    return `${diffDays} days ago`;
+};
+
+const resolveProjectHealth = (project) => {
+    const timestamp = new Date(project?.updated_at ?? '').getTime();
+    const hasDescription = Boolean(String(project?.description ?? '').trim());
+
+    if (Number.isNaN(timestamp)) {
+        return {
+            label: 'Needs review',
+            tone: 'bg-amber-100 text-amber-800',
+        };
+    }
+
+    const diffDays = Math.floor((Date.now() - timestamp) / DAY_IN_MS);
+
+    if (diffDays > 30) {
+        return {
+            label: 'At risk',
+            tone: 'bg-rose-100 text-rose-700',
+        };
+    }
+
+    if (!hasDescription || diffDays > 7) {
+        return {
+            label: 'Attention',
+            tone: 'bg-amber-100 text-amber-800',
+        };
+    }
+
+    return {
+        label: 'Healthy',
+        tone: 'bg-emerald-100 text-emerald-700',
+    };
+};
+
 export default function ProjectsIndex() {
     const session = useAppSession();
     const toast = useToast();
@@ -24,6 +83,24 @@ export default function ProjectsIndex() {
         lastPage: 1,
         perPage: 10,
         total: 0,
+    });
+
+    const healthSummary = projects.reduce((summary, project) => {
+        const health = resolveProjectHealth(project).label;
+
+        if (health === 'Healthy') {
+            summary.healthy += 1;
+        } else if (health === 'Attention') {
+            summary.attention += 1;
+        } else {
+            summary.atRisk += 1;
+        }
+
+        return summary;
+    }, {
+        healthy: 0,
+        attention: 0,
+        atRisk: 0,
     });
 
     const fetchProjects = async (page = 1, overrides = {}) => {
@@ -99,7 +176,7 @@ export default function ProjectsIndex() {
                 </div>
             ) : (
                 <>
-                    <div className="mb-4 grid gap-4 sm:grid-cols-3">
+                    <div className="mb-4 grid gap-4 sm:grid-cols-4">
                         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:col-span-2">
                             <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Workspace overview</p>
                             <p className="mt-2 text-base font-semibold text-slate-900">Organize delivery by project</p>
@@ -109,15 +186,28 @@ export default function ProjectsIndex() {
                             <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Total projects</p>
                             <p className="mt-2 text-2xl font-semibold text-slate-900">{pagination.total}</p>
                         </article>
+                        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Health snapshot</p>
+                            <div className="mt-2 space-y-1 text-sm text-slate-700">
+                                <p>Healthy: <span className="font-semibold text-emerald-700">{healthSummary.healthy}</span></p>
+                                <p>Attention: <span className="font-semibold text-amber-700">{healthSummary.attention}</span></p>
+                                <p>At risk: <span className="font-semibold text-rose-700">{healthSummary.atRisk}</span></p>
+                            </div>
+                        </article>
                     </div>
 
                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-slate-600">Track all projects in your active tenant context.</p>
-                        {canManageProjects && (
-                            <Link href="/app/projects/create" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">
-                                New project
-                            </Link>
-                        )}
+                        <p className="text-sm text-slate-600">Track all projects in your active tenant context and jump straight into task execution.</p>
+                        {canManageProjects ? (
+                            <div className="flex flex-wrap gap-2">
+                                <Link href="/app/projects/create" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">
+                                    + New project
+                                </Link>
+                                <Link href="/app/projects" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                                    Refresh list
+                                </Link>
+                            </div>
+                        ) : null}
                     </div>
 
                     <InlineNotice message={message} className="mb-4" />
@@ -179,6 +269,8 @@ export default function ProjectsIndex() {
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left font-medium text-slate-600">Name</th>
+                                    <th className="px-4 py-3 text-left font-medium text-slate-600">Health</th>
+                                    <th className="px-4 py-3 text-left font-medium text-slate-600">Updated</th>
                                     <th className="px-4 py-3 text-left font-medium text-slate-600">Description</th>
                                     <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
                                 </tr>
@@ -187,6 +279,12 @@ export default function ProjectsIndex() {
                                 {projects.map((project) => (
                                     <tr key={project.id}>
                                         <td className="px-4 py-3 font-medium text-slate-900">{project.name}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${resolveProjectHealth(project).tone}`}>
+                                                {resolveProjectHealth(project).label}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-600">{formatProjectUpdateAge(project.updated_at)}</td>
                                         <td className="px-4 py-3 text-slate-600">{project.description || 'No description provided.'}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex justify-end gap-2">
@@ -202,6 +300,14 @@ export default function ProjectsIndex() {
                                                 >
                                                     Tasks
                                                 </Link>
+                                                {canManageProjects && (
+                                                    <Link
+                                                        href={`/app/projects/${project.id}/tasks/create`}
+                                                        className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
+                                                    >
+                                                        New task
+                                                    </Link>
+                                                )}
                                                 {canManageProjects && (
                                                     <>
                                                         <Link
@@ -225,10 +331,20 @@ export default function ProjectsIndex() {
                                 ))}
                                 {projects.length === 0 ? (
                                     <tr>
-                                        <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                                        <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
                                             {pagination.total === 0
                                                 ? 'No projects yet. Create one to start grouping work.'
                                                 : 'No projects match your current filters.'}
+                                            {canManageProjects && pagination.total === 0 ? (
+                                                <div className="mt-3">
+                                                    <Link
+                                                        href="/app/projects/create"
+                                                        className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                                                    >
+                                                        Create your first project
+                                                    </Link>
+                                                </div>
+                                            ) : null}
                                         </td>
                                     </tr>
                                 ) : null}

@@ -2,6 +2,8 @@
 
 namespace Modules\Membership\Services;
 
+use Illuminate\Support\Facades\Auth;
+use Modules\Membership\Enums\MembershipRole;
 use Modules\Membership\Enums\TenantPermission;
 use Modules\Membership\Models\Membership;
 use Modules\Membership\Support\TenantRolePermissions;
@@ -15,8 +17,12 @@ class CurrentMembershipService
      */
     public static function get(): Membership
     {
-        /** @var User $user */
-        $user = auth()->user();
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            abort(401, 'Unauthenticated.');
+        }
 
         return $user->memberships()->firstOrFail();
     }
@@ -45,5 +51,41 @@ class CurrentMembershipService
             TenantRolePermissions::rolesWithPermission($permission),
             strict: true,
         );
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    public static function capabilitiesFor(User $user): array
+    {
+        $membership = static::for($user);
+
+        if (! $membership) {
+            return [
+                'is_tenant_member' => false,
+                'can_view_memberships' => false,
+                'can_view_billing' => false,
+                'can_manage_projects' => false,
+                'can_manage_memberships' => false,
+                'can_manage_invitations' => false,
+                'can_manage_billing' => false,
+                'can_manage_tenant_settings' => false,
+                'is_tenant_owner' => false,
+            ];
+        }
+
+        $permissions = TenantRolePermissions::permissionsForRole($membership->role);
+
+        return [
+            'is_tenant_member' => true,
+            'can_view_memberships' => in_array(TenantPermission::ViewMemberships->value, $permissions, true),
+            'can_view_billing' => true,
+            'can_manage_projects' => in_array(TenantPermission::ManageProjects->value, $permissions, true),
+            'can_manage_memberships' => in_array(TenantPermission::ManageMemberships->value, $permissions, true),
+            'can_manage_invitations' => in_array(TenantPermission::ManageInvitations->value, $permissions, true),
+            'can_manage_billing' => in_array(TenantPermission::ManageBilling->value, $permissions, true),
+            'can_manage_tenant_settings' => in_array(TenantPermission::ManageTenantSettings->value, $permissions, true),
+            'is_tenant_owner' => $membership->role === MembershipRole::Owner,
+        ];
     }
 }

@@ -77,6 +77,26 @@ Route::get('/app/analytics', function () {
     return Inertia::render('Analytics/Index');
 })->name('app.analytics.index');
 
+Route::get('/app/settings', function () {
+    return Inertia::render('Settings/Profile');
+})->name('app.settings.profile');
+
+Route::get('/app/tenant-settings', function () {
+    return Inertia::render('Settings/Tenant');
+})->name('app.settings.tenant');
+
+Route::get('/app/onboarding', function () {
+    return Inertia::render('Onboarding/Index');
+})->name('app.onboarding.index');
+
+Route::get('/app/notifications', function () {
+    return Inertia::render('Notifications/Index');
+})->name('app.notifications.index');
+
+Route::get('/app/admin', function () {
+    return Inertia::render('Admin/Index');
+})->name('app.admin.index');
+
 Route::get('/app/audit-logs', function () {
     return redirect('/app/logs?tab=audit');
 })->name('app.audit-logs.index');

@@ -12,7 +12,10 @@ const roleOptions = ['owner', 'admin', 'member'];
 export default function MembershipsIndex() {
     const session = useAppSession();
     const toast = useToast();
-    const { isLoading } = session;
+    const { isLoading, permissions = {} } = session;
+    const canManageMemberships = Boolean(permissions.canManageMemberships);
+    const canManageInvitations = Boolean(permissions.canManageInvitations);
+
     const [isPageLoading, setIsPageLoading] = useState(true);
     const [memberships, setMemberships] = useState([]);
     const [currentMembership, setCurrentMembership] = useState(null);
@@ -25,6 +28,22 @@ export default function MembershipsIndex() {
     const [isRevokingInvitation, setIsRevokingInvitation] = useState(false);
     const [membershipToRemove, setMembershipToRemove] = useState(null);
     const [isRemovingMembership, setIsRemovingMembership] = useState(false);
+
+    const roleSummary = memberships.reduce((summary, membership) => {
+        if (membership.role === 'owner') {
+            summary.owner += 1;
+        } else if (membership.role === 'admin') {
+            summary.admin += 1;
+        } else {
+            summary.member += 1;
+        }
+
+        return summary;
+    }, {
+        owner: 0,
+        admin: 0,
+        member: 0,
+    });
 
     const loadMemberships = async () => {
         setIsPageLoading(true);
@@ -53,6 +72,11 @@ export default function MembershipsIndex() {
         setMessage('');
         setError('');
 
+        if (!canManageInvitations) {
+            setError('Only owner/admin can send invitations for this tenant.');
+            return;
+        }
+
         try {
             const response = await window.axios.post('/api/v1/invitations', {
                 email,
@@ -75,7 +99,7 @@ export default function MembershipsIndex() {
     };
 
     const handleRevokeLastInvitation = async () => {
-        if (!lastInvitation?.id) {
+        if (!lastInvitation?.id || !canManageInvitations) {
             return;
         }
 
@@ -100,6 +124,12 @@ export default function MembershipsIndex() {
 
         setMessage('');
         setError('');
+
+        if (!canManageMemberships) {
+            setError('Only owner/admin can remove members in this tenant.');
+            setIsRemovingMembership(false);
+            return;
+        }
 
         try {
             await window.axios.delete(`/api/v1/memberships/${membershipId}`);
@@ -153,60 +183,79 @@ export default function MembershipsIndex() {
                         </article>
                     </section>
 
+                    <section className="mt-4 grid gap-4 sm:grid-cols-3">
+                        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Owners</p>
+                            <p className="mt-2 text-2xl font-semibold text-slate-900">{roleSummary.owner}</p>
+                        </article>
+                        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Admins</p>
+                            <p className="mt-2 text-2xl font-semibold text-slate-900">{roleSummary.admin}</p>
+                        </article>
+                        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Members</p>
+                            <p className="mt-2 text-2xl font-semibold text-slate-900">{roleSummary.member}</p>
+                        </article>
+                    </section>
+
                     <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                         <h2 className="text-base font-semibold text-slate-900">Members</h2>
                         <p className="mt-1 text-sm text-slate-600">People who currently have access to this tenant and their effective role scope.</p>
 
-                <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-                    <table className="min-w-full divide-y divide-slate-200 text-sm">
-                        <thead className="bg-slate-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Member</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Email</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Role</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Scope</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Joined</th>
-                                <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {memberships.map((membership) => (
-                                <tr key={membership.id}>
-                                    <td className="px-4 py-3 text-slate-700">{membership?.user?.name ?? `User #${membership.user_id}`}</td>
-                                    <td className="px-4 py-3 text-slate-700">{membership?.user?.email ?? '-'}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${roleBadgeClass(membership.role)}`}>
-                                            {membership.role}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-600">
-                                        {membership.is_current_user ? 'You' : 'Member'}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-600">{membership.created_at ?? '-'}</td>
-                                    <td className="px-4 py-3 text-right">
-                                        {!membership.is_current_user ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => setMembershipToRemove(membership.id)}
-                                                className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
-                                            >
-                                                Remove
-                                            </button>
-                                        ) : (
-                                            <span className="text-xs text-slate-500">Current user</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                            {memberships.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                                        No memberships found.
-                                    </td>
-                                </tr>
-                            ) : null}
-                        </tbody>
-                    </table>
+                        <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
+                            <table className="min-w-full divide-y divide-slate-200 text-sm">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left font-medium text-slate-600">Member</th>
+                                        <th className="px-4 py-3 text-left font-medium text-slate-600">Email</th>
+                                        <th className="px-4 py-3 text-left font-medium text-slate-600">Role</th>
+                                        <th className="px-4 py-3 text-left font-medium text-slate-600">Scope</th>
+                                        <th className="px-4 py-3 text-left font-medium text-slate-600">Joined</th>
+                                        <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {memberships.map((membership) => (
+                                        <tr key={membership.id}>
+                                            <td className="px-4 py-3 text-slate-700">{membership?.user?.name ?? `User #${membership.user_id}`}</td>
+                                            <td className="px-4 py-3 text-slate-700">{membership?.user?.email ?? '-'}</td>
+                                            <td className="px-4 py-3">
+                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${roleBadgeClass(membership.role)}`}>
+                                                    {membership.role}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-600">
+                                                {membership.is_current_user ? 'You' : 'Member'}
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-600">{membership.created_at ?? '-'}</td>
+                                            <td className="px-4 py-3 text-right">
+                                                {!membership.is_current_user ? (
+                                                    canManageMemberships ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setMembershipToRemove(membership.id)}
+                                                            className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-500">No write access</span>
+                                                    )
+                                                ) : (
+                                                    <span className="text-xs text-slate-500">Current user</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {memberships.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                                                No memberships found.
+                                            </td>
+                                        </tr>
+                                    ) : null}
+                                </tbody>
+                            </table>
                         </div>
                     </section>
 
@@ -253,7 +302,11 @@ export default function MembershipsIndex() {
                                 </label>
 
                                 <div className="sm:col-span-2">
-                                    <button type="submit" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                                    <button
+                                        type="submit"
+                                        disabled={!canManageInvitations}
+                                        className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
                                         Send invitation
                                     </button>
                                 </div>
@@ -271,13 +324,17 @@ export default function MembershipsIndex() {
                                         <button
                                             type="button"
                                             onClick={handleRevokeLastInvitation}
-                                            disabled={isRevokingInvitation}
+                                            disabled={isRevokingInvitation || !canManageInvitations}
                                             className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                             {isRevokingInvitation ? 'Revoking...' : 'Revoke invitation'}
                                         </button>
                                     </div>
                                 </div>
+                            ) : null}
+
+                            {!canManageInvitations ? (
+                                <p className="mt-3 text-xs text-slate-500">Invitations are managed by owner/admin roles.</p>
                             ) : null}
                         </form>
 

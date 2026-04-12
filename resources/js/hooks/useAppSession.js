@@ -9,24 +9,25 @@ const emptyPermissions = {
     canManageMemberships: false,
     canManageInvitations: false,
     canManageBilling: false,
+    canManageTenantSettings: false,
+    isTenantOwner: false,
 };
 
-const buildPermissions = (membership) => {
-    if (!membership) {
+const normalizeCapabilities = (capabilities) => {
+    if (!capabilities || typeof capabilities !== 'object') {
         return emptyPermissions;
     }
 
-    const roleFlags = membership?.role_flags ?? {};
-    const canManage = Boolean(roleFlags.is_owner || roleFlags.is_admin);
-
     return {
-        isTenantMember: true,
-        canViewMemberships: true,
-        canViewBilling: true,
-        canManageProjects: canManage,
-        canManageMemberships: canManage,
-        canManageInvitations: canManage,
-        canManageBilling: canManage,
+        isTenantMember: Boolean(capabilities.is_tenant_member),
+        canViewMemberships: Boolean(capabilities.can_view_memberships),
+        canViewBilling: Boolean(capabilities.can_view_billing),
+        canManageProjects: Boolean(capabilities.can_manage_projects),
+        canManageMemberships: Boolean(capabilities.can_manage_memberships),
+        canManageInvitations: Boolean(capabilities.can_manage_invitations),
+        canManageBilling: Boolean(capabilities.can_manage_billing),
+        canManageTenantSettings: Boolean(capabilities.can_manage_tenant_settings),
+        isTenantOwner: Boolean(capabilities.is_tenant_owner),
     };
 };
 
@@ -48,16 +49,20 @@ export default function useAppSession() {
             }
 
             try {
-                const [meResponse, tenantsResponse] = await Promise.all([
-                    window.axios.get('/api/v1/me'),
-                    window.axios.get('/api/v1/tenants'),
-                ]);
+                const bootstrapResponse = await window.axios.get('/api/v1/session/bootstrap');
+                const bootstrappedUser = bootstrapResponse?.data?.user ?? null;
+                const bootstrappedTenants = bootstrapResponse?.data?.tenants ?? [];
+                const bootstrappedMembership = bootstrapResponse?.data?.context?.current_membership ?? null;
+                const bootstrappedCapabilities = normalizeCapabilities(bootstrapResponse?.data?.context?.capabilities);
 
-                setUser(meResponse?.data?.data ?? null);
-                setTenants(tenantsResponse?.data?.data ?? []);
+                setUser(bootstrappedUser);
+                setTenants(bootstrappedTenants);
 
-                const firstTenantId = tenantsResponse?.data?.data?.[0]?.id;
-                const activeTenantId = tenantId || (firstTenantId ? String(firstTenantId) : null);
+                const firstTenantId = bootstrappedTenants?.[0]?.id;
+                const resolvedBootstrapTenantId = bootstrapResponse?.data?.active_tenant_id;
+                const activeTenantId = resolvedBootstrapTenantId
+                    ? String(resolvedBootstrapTenantId)
+                    : (tenantId || (firstTenantId ? String(firstTenantId) : null));
 
                 if (activeTenantId) {
                     setTenantContext(activeTenantId);
@@ -70,15 +75,8 @@ export default function useAppSession() {
                 }
 
                 if (activeTenantId) {
-                    try {
-                        const membershipsResponse = await window.axios.get('/api/v1/memberships');
-                        const membership = membershipsResponse?.data?.meta?.current_membership?.data ?? null;
-                        setCurrentMembership(membership);
-                        setPermissions(buildPermissions(membership));
-                    } catch {
-                        setCurrentMembership(null);
-                        setPermissions(emptyPermissions);
-                    }
+                    setCurrentMembership(bootstrappedMembership);
+                    setPermissions(bootstrappedCapabilities);
                 } else {
                     setCurrentMembership(null);
                     setPermissions(emptyPermissions);

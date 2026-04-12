@@ -7,6 +7,59 @@ import useAppSession from '../../hooks/useAppSession';
 import useProjectRealtime from '../../hooks/useProjectRealtime';
 import { priorityBadgeClass, statusBadgeClass } from '../../utils/badgeClasses';
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const getTaskHealth = (task) => {
+    const due = task?.due_at ? new Date(task.due_at).getTime() : null;
+    const now = Date.now();
+
+    if (task?.status === 'done') {
+        return {
+            label: 'Done',
+            tone: 'bg-emerald-100 text-emerald-700',
+        };
+    }
+
+    if (due && !Number.isNaN(due) && due < now) {
+        return {
+            label: 'Overdue',
+            tone: 'bg-rose-100 text-rose-700',
+        };
+    }
+
+    if (due && !Number.isNaN(due) && due <= now + (3 * DAY_IN_MS)) {
+        return {
+            label: 'Due soon',
+            tone: 'bg-amber-100 text-amber-800',
+        };
+    }
+
+    return {
+        label: 'On track',
+        tone: 'bg-sky-100 text-sky-700',
+    };
+};
+
+const formatDateTime = (value) => {
+    if (!value) {
+        return '-';
+    }
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return '-';
+    }
+
+    return parsed.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+};
+
 export default function TasksShow({ projectId, taskId }) {
     const session = useAppSession();
     const { isLoading, tenantId, permissions = {} } = session;
@@ -14,6 +67,7 @@ export default function TasksShow({ projectId, taskId }) {
     const [isPageLoading, setIsPageLoading] = useState(true);
     const [task, setTask] = useState(null);
     const [message, setMessage] = useState('');
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     useEffect(() => {
         const fetchTask = async () => {
@@ -48,6 +102,32 @@ export default function TasksShow({ projectId, taskId }) {
         onTaskUpdated: useCallback((event) => handleRealtimeTaskUpdate(event.task), [handleRealtimeTaskUpdate]),
         onTaskCompleted: useCallback((event) => handleRealtimeTaskUpdate(event.task), [handleRealtimeTaskUpdate]),
     });
+
+    const handleStatusUpdate = async (nextStatus) => {
+        if (!task || !canManageProjects) {
+            return;
+        }
+
+        setIsUpdatingStatus(true);
+        setMessage('');
+
+        try {
+            const response = await window.axios.patch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
+                title: task.title,
+                description: task.description,
+                status: nextStatus,
+                priority: task.priority,
+                due_at: task.due_at || null,
+            });
+
+            setTask(response?.data?.data ?? task);
+            setMessage(nextStatus === 'done' ? 'Task marked as done.' : 'Task moved to in progress.');
+        } catch (error) {
+            setMessage(error?.response?.data?.message || 'Unable to update task status.');
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
 
     if (isLoading) {
         return <div className="p-6 text-sm text-slate-600">Loading session...</div>;
@@ -94,6 +174,9 @@ export default function TasksShow({ projectId, taskId }) {
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${priorityBadgeClass(task.priority)}`}>
                                 {task.priority}
                             </span>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getTaskHealth(task).tone}`}>
+                                {getTaskHealth(task).label}
+                            </span>
                         </div>
 
                         <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-900">{task.title}</h2>
@@ -110,11 +193,15 @@ export default function TasksShow({ projectId, taskId }) {
                             </div>
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                                 <dt className="text-xs uppercase tracking-wide text-slate-500">Due Date</dt>
-                                <dd className="mt-1 text-sm font-semibold text-slate-900">{task.due_at || '-'}</dd>
+                                <dd className="mt-1 text-sm font-semibold text-slate-900">{formatDateTime(task.due_at)}</dd>
                             </div>
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                                 <dt className="text-xs uppercase tracking-wide text-slate-500">Task ID</dt>
                                 <dd className="mt-1 text-sm font-semibold text-slate-900">{task.id}</dd>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <dt className="text-xs uppercase tracking-wide text-slate-500">Last Updated</dt>
+                                <dd className="mt-1 text-sm font-semibold text-slate-900">{formatDateTime(task.updated_at)}</dd>
                             </div>
                         </dl>
                     </article>
@@ -128,6 +215,26 @@ export default function TasksShow({ projectId, taskId }) {
                         </ul>
 
                         <div className="mt-4 flex flex-col gap-2">
+                            {canManageProjects && task.status !== 'in_progress' && task.status !== 'done' ? (
+                                <button
+                                    type="button"
+                                    disabled={isUpdatingStatus}
+                                    onClick={() => handleStatusUpdate('in_progress')}
+                                    className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    Start task
+                                </button>
+                            ) : null}
+                            {canManageProjects && task.status !== 'done' ? (
+                                <button
+                                    type="button"
+                                    disabled={isUpdatingStatus}
+                                    onClick={() => handleStatusUpdate('done')}
+                                    className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    Mark done
+                                </button>
+                            ) : null}
                             {canManageProjects && (
                                 <Link
                                     href={`/app/projects/${projectId}/tasks/${taskId}/edit`}

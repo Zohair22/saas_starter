@@ -9,6 +9,81 @@ import useProjectRealtime from '../../hooks/useProjectRealtime';
 import useToast from '../../hooks/useToast';
 import { priorityBadgeClass, statusBadgeClass } from '../../utils/badgeClasses';
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const formatUpdateAge = (value) => {
+    if (!value) {
+        return 'Unknown';
+    }
+
+    const timestamp = new Date(value).getTime();
+
+    if (Number.isNaN(timestamp)) {
+        return 'Unknown';
+    }
+
+    const diffDays = Math.floor((Date.now() - timestamp) / DAY_IN_MS);
+
+    if (diffDays <= 0) {
+        return 'Today';
+    }
+
+    if (diffDays === 1) {
+        return '1 day ago';
+    }
+
+    return `${diffDays} days ago`;
+};
+
+const taskHealth = (task) => {
+    const due = task?.due_at ? new Date(task.due_at).getTime() : null;
+    const now = Date.now();
+
+    if (task?.status === 'done') {
+        return {
+            label: 'Done',
+            tone: 'bg-emerald-100 text-emerald-700',
+        };
+    }
+
+    if (due && !Number.isNaN(due) && due < now) {
+        return {
+            label: 'Overdue',
+            tone: 'bg-rose-100 text-rose-700',
+        };
+    }
+
+    if (due && !Number.isNaN(due) && due <= now + (3 * DAY_IN_MS)) {
+        return {
+            label: 'Due soon',
+            tone: 'bg-amber-100 text-amber-800',
+        };
+    }
+
+    return {
+        label: 'On track',
+        tone: 'bg-sky-100 text-sky-700',
+    };
+};
+
+const formatDueDate = (value) => {
+    if (!value) {
+        return '-';
+    }
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return '-';
+    }
+
+    return parsed.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+};
+
 export default function TasksIndex({ projectId }) {
     const session = useAppSession();
     const toast = useToast();
@@ -19,6 +94,7 @@ export default function TasksIndex({ projectId }) {
     const [tasks, setTasks] = useState([]);
     const [message, setMessage] = useState('');
     const [taskToDelete, setTaskToDelete] = useState(null);
+    const [isUpdatingStatusTaskId, setIsUpdatingStatusTaskId] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -132,12 +208,99 @@ export default function TasksIndex({ projectId }) {
         }
     };
 
+    const handleStatusUpdate = async (task, nextStatus) => {
+        if (!canManageProjects) {
+            return;
+        }
+
+        setIsUpdatingStatusTaskId(task.id);
+
+        try {
+            await window.axios.patch(`/api/v1/projects/${projectId}/tasks/${task.id}`, {
+                title: task.title,
+                description: task.description,
+                status: nextStatus,
+                priority: task.priority,
+                due_at: task.due_at || null,
+            });
+
+            await fetchTasks(pagination.currentPage, {
+                q: searchQuery,
+                status: statusFilter,
+                priority: priorityFilter,
+                sort: sortBy,
+            });
+
+            toast.success(nextStatus === 'done' ? 'Task marked as done.' : 'Task moved to in progress.');
+        } catch (error) {
+            const errorMessage = error?.response?.data?.message || 'Unable to update task status.';
+            setMessage(errorMessage);
+        } finally {
+            setIsUpdatingStatusTaskId(null);
+        }
+    };
+
+    const taskSummary = tasks.reduce((summary, task) => {
+        if (task.status === 'open') {
+            summary.open += 1;
+        }
+
+        if (task.status === 'in_progress') {
+            summary.inProgress += 1;
+        }
+
+        if (task.status === 'done') {
+            summary.done += 1;
+        }
+
+        const healthLabel = taskHealth(task).label;
+
+        if (healthLabel === 'Overdue') {
+            summary.overdue += 1;
+        }
+
+        if (healthLabel === 'Due soon') {
+            summary.dueSoon += 1;
+        }
+
+        return summary;
+    }, {
+        open: 0,
+        inProgress: 0,
+        done: 0,
+        overdue: 0,
+        dueSoon: 0,
+    });
+
     if (isLoading) {
         return <div className="p-6 text-sm text-slate-600">Loading session...</div>;
     }
 
     return (
         <AppLayout title="Tasks" session={session}>
+            <section className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Total tasks</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{pagination.total}</p>
+                </article>
+                <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Open</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{taskSummary.open}</p>
+                </article>
+                <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">In progress</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{taskSummary.inProgress}</p>
+                </article>
+                <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Due soon</p>
+                    <p className="mt-2 text-2xl font-semibold text-amber-700">{taskSummary.dueSoon}</p>
+                </article>
+                <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Overdue</p>
+                    <p className="mt-2 text-2xl font-semibold text-rose-700">{taskSummary.overdue}</p>
+                </article>
+            </section>
+
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <Link href={`/app/projects/${projectId}`} className="text-sm font-medium text-slate-700 underline decoration-slate-300">
@@ -154,12 +317,26 @@ export default function TasksIndex({ projectId }) {
                     </div>
                 </div>
                 {canManageProjects && (
-                    <Link
-                        href={`/app/projects/${projectId}/tasks/create`}
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                    >
-                        New task
-                    </Link>
+                    <div className="flex gap-2">
+                        <Link
+                            href={`/app/projects/${projectId}/tasks/create`}
+                            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                        >
+                            + New task
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={() => fetchTasks(1, {
+                                q: searchQuery,
+                                status: statusFilter,
+                                priority: priorityFilter,
+                                sort: sortBy,
+                            })}
+                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                        >
+                            Refresh
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -262,8 +439,11 @@ export default function TasksIndex({ projectId }) {
                     <thead className="bg-slate-50">
                         <tr>
                             <th className="px-4 py-3 text-left font-medium text-slate-600">Title</th>
+                            <th className="px-4 py-3 text-left font-medium text-slate-600">Health</th>
                             <th className="px-4 py-3 text-left font-medium text-slate-600">Status</th>
                             <th className="px-4 py-3 text-left font-medium text-slate-600">Priority</th>
+                            <th className="px-4 py-3 text-left font-medium text-slate-600">Due</th>
+                            <th className="px-4 py-3 text-left font-medium text-slate-600">Updated</th>
                             <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
                         </tr>
                     </thead>
@@ -271,6 +451,11 @@ export default function TasksIndex({ projectId }) {
                         {tasks.map((task) => (
                             <tr key={task.id}>
                                 <td className="px-4 py-3 font-medium text-slate-900">{task.title}</td>
+                                <td className="px-4 py-3">
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${taskHealth(task).tone}`}>
+                                        {taskHealth(task).label}
+                                    </span>
+                                </td>
                                 <td className="px-4 py-3">
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadgeClass(task.status)}`}>
                                         {task.status}
@@ -281,6 +466,8 @@ export default function TasksIndex({ projectId }) {
                                         {task.priority}
                                     </span>
                                 </td>
+                                <td className="px-4 py-3 text-slate-600">{formatDueDate(task.due_at)}</td>
+                                <td className="px-4 py-3 text-slate-600">{formatUpdateAge(task.updated_at)}</td>
                                 <td className="px-4 py-3">
                                     <div className="flex justify-end gap-2">
                                         <Link
@@ -291,6 +478,26 @@ export default function TasksIndex({ projectId }) {
                                         </Link>
                                         {canManageProjects && (
                                             <>
+                                                {task.status !== 'in_progress' && task.status !== 'done' ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isUpdatingStatusTaskId === task.id}
+                                                        onClick={() => handleStatusUpdate(task, 'in_progress')}
+                                                        className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        Start
+                                                    </button>
+                                                ) : null}
+                                                {task.status !== 'done' ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isUpdatingStatusTaskId === task.id}
+                                                        onClick={() => handleStatusUpdate(task, 'done')}
+                                                        className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        Done
+                                                    </button>
+                                                ) : null}
                                                 <Link
                                                     href={`/app/projects/${projectId}/tasks/${task.id}/edit`}
                                                     className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
@@ -312,8 +519,18 @@ export default function TasksIndex({ projectId }) {
                         ))}
                         {tasks.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                                     No tasks yet. Add one to begin execution for this project.
+                                    {canManageProjects ? (
+                                        <div className="mt-3">
+                                            <Link
+                                                href={`/app/projects/${projectId}/tasks/create`}
+                                                className="inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                                            >
+                                                Create your first task
+                                            </Link>
+                                        </div>
+                                    ) : null}
                                 </td>
                             </tr>
                         ) : null}
