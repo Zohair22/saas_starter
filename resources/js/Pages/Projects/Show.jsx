@@ -7,7 +7,8 @@ import useAppSession from '../../hooks/useAppSession';
 
 export default function ProjectsShow({ id }) {
     const session = useAppSession();
-    const { isLoading } = session;
+    const { isLoading, permissions = {} } = session;
+    const canManageProjects = Boolean(permissions.canManageProjects);
     const [isPageLoading, setIsPageLoading] = useState(true);
     const [project, setProject] = useState(null);
     const [message, setMessage] = useState('');
@@ -69,12 +70,14 @@ export default function ProjectsShow({ id }) {
                     >
                         Manage tasks
                     </Link>
-                    <Link
-                        href={`/app/projects/${id}/edit`}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                    >
-                        Edit
-                    </Link>
+                    {canManageProjects && (
+                        <Link
+                            href={`/app/projects/${id}/edit`}
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                        >
+                            Edit
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -113,12 +116,14 @@ export default function ProjectsShow({ id }) {
                         <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Recommended next step</p>
                         <p className="mt-2 text-sm text-slate-700">Break this project into actionable tasks and assign priorities so your team can execute clearly.</p>
                         <div className="mt-4 flex flex-col gap-2">
-                            <Link
-                                href={`/app/projects/${id}/tasks/create`}
-                                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                            >
-                                Create first task
-                            </Link>
+                            {canManageProjects && (
+                                <Link
+                                    href={`/app/projects/${id}/tasks/create`}
+                                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                                >
+                                    Create first task
+                                </Link>
+                            )}
                             <Link
                                 href={`/app/projects/${id}/tasks`}
                                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"

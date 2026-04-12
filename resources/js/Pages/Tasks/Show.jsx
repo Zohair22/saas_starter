@@ -9,7 +9,8 @@ import { priorityBadgeClass, statusBadgeClass } from '../../utils/badgeClasses';
 
 export default function TasksShow({ projectId, taskId }) {
     const session = useAppSession();
-    const { isLoading, tenantId } = session;
+    const { isLoading, tenantId, permissions = {} } = session;
+    const canManageProjects = Boolean(permissions.canManageProjects);
     const [isPageLoading, setIsPageLoading] = useState(true);
     const [task, setTask] = useState(null);
     const [message, setMessage] = useState('');
@@ -68,12 +69,14 @@ export default function TasksShow({ projectId, taskId }) {
                             Live
                         </span>
                     ) : null}
-                    <Link
-                        href={`/app/projects/${projectId}/tasks/${taskId}/edit`}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                    >
-                        Edit
-                    </Link>
+                    {canManageProjects && (
+                        <Link
+                            href={`/app/projects/${projectId}/tasks/${taskId}/edit`}
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                        >
+                            Edit
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -125,12 +128,14 @@ export default function TasksShow({ projectId, taskId }) {
                         </ul>
 
                         <div className="mt-4 flex flex-col gap-2">
-                            <Link
-                                href={`/app/projects/${projectId}/tasks/${taskId}/edit`}
-                                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                            >
-                                Update task
-                            </Link>
+                            {canManageProjects && (
+                                <Link
+                                    href={`/app/projects/${projectId}/tasks/${taskId}/edit`}
+                                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                                >
+                                    Update task
+                                </Link>
+                            )}
                             <Link
                                 href={`/app/projects/${projectId}/tasks`}
                                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"

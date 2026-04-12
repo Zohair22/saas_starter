@@ -1,11 +1,42 @@
 import { useEffect, useState } from 'react';
 import { getAuthToken, getTenantId, setTenantContext } from '../session';
 
+const emptyPermissions = {
+    isTenantMember: false,
+    canViewMemberships: false,
+    canViewBilling: false,
+    canManageProjects: false,
+    canManageMemberships: false,
+    canManageInvitations: false,
+    canManageBilling: false,
+};
+
+const buildPermissions = (membership) => {
+    if (!membership) {
+        return emptyPermissions;
+    }
+
+    const roleFlags = membership?.role_flags ?? {};
+    const canManage = Boolean(roleFlags.is_owner || roleFlags.is_admin);
+
+    return {
+        isTenantMember: true,
+        canViewMemberships: true,
+        canViewBilling: true,
+        canManageProjects: canManage,
+        canManageMemberships: canManage,
+        canManageInvitations: canManage,
+        canManageBilling: canManage,
+    };
+};
+
 export default function useAppSession() {
     const [isLoading, setIsLoading] = useState(true);
     const [user, setUser] = useState(null);
     const [tenants, setTenants] = useState([]);
     const [tenantId, setTenantId] = useState(getTenantId());
+    const [currentMembership, setCurrentMembership] = useState(null);
+    const [permissions, setPermissions] = useState(emptyPermissions);
 
     useEffect(() => {
         const initializeSession = async () => {
@@ -25,13 +56,32 @@ export default function useAppSession() {
                 setUser(meResponse?.data?.data ?? null);
                 setTenants(tenantsResponse?.data?.data ?? []);
 
-                if (!tenantId) {
-                    const firstTenant = tenantsResponse?.data?.data?.[0]?.id;
+                const firstTenantId = tenantsResponse?.data?.data?.[0]?.id;
+                const activeTenantId = tenantId || (firstTenantId ? String(firstTenantId) : null);
 
-                    if (firstTenant) {
-                        setTenantContext(firstTenant);
-                        setTenantId(String(firstTenant));
+                if (activeTenantId) {
+                    setTenantContext(activeTenantId);
+                }
+
+                if (!tenantId) {
+                    if (firstTenantId) {
+                        setTenantId(String(firstTenantId));
                     }
+                }
+
+                if (activeTenantId) {
+                    try {
+                        const membershipsResponse = await window.axios.get('/api/v1/memberships');
+                        const membership = membershipsResponse?.data?.meta?.current_membership?.data ?? null;
+                        setCurrentMembership(membership);
+                        setPermissions(buildPermissions(membership));
+                    } catch {
+                        setCurrentMembership(null);
+                        setPermissions(emptyPermissions);
+                    }
+                } else {
+                    setCurrentMembership(null);
+                    setPermissions(emptyPermissions);
                 }
             } catch {
                 window.location.href = '/login';
@@ -58,6 +108,8 @@ export default function useAppSession() {
         user,
         tenants,
         tenantId,
+        currentMembership,
+        permissions,
         switchTenant,
     };
 }

@@ -2,17 +2,25 @@ import { Link } from '@inertiajs/react';
 import { clearSession } from '../session';
 
 export default function AppLayout({ title, children, session = {} }) {
-    const { tenantId, tenants = [], switchTenant, user } = session;
+    const { tenantId, tenants = [], switchTenant, user, permissions = {} } = session;
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    const hasTenantContext = Boolean(tenantId || tenants.length > 0);
+    const canViewBilling = Boolean(permissions.canViewBilling) || hasTenantContext;
+    const canViewMemberships = Boolean(permissions.canViewMemberships) || hasTenantContext;
+    const canViewApp = Boolean(permissions.isTenantMember) || hasTenantContext;
+    const isPermissionMetadataMissing = hasTenantContext
+        && !permissions.isTenantMember
+        && !permissions.canViewBilling
+        && !permissions.canViewMemberships;
 
     const navItems = [
         { label: 'Dashboard', href: '/app' },
         { label: 'Projects', href: '/app/projects' },
-        { label: 'Billing', href: '/app/billing' },
-        { label: 'Members', href: '/app/memberships' },
-        { label: 'Logs', href: '/app/logs' },
-        { label: 'Analytics', href: '/app/analytics' },
-    ];
+        canViewBilling ? { label: 'Billing', href: '/app/billing' } : null,
+        canViewMemberships ? { label: 'Members', href: '/app/memberships' } : null,
+        canViewApp ? { label: 'Logs', href: '/app/logs' } : null,
+        canViewApp ? { label: 'Analytics', href: '/app/analytics' } : null,
+    ].filter(Boolean);
 
     const isActive = (href) => {
         if (href === '/app') {
@@ -83,6 +91,12 @@ export default function AppLayout({ title, children, session = {} }) {
                             >
                                 Logout
                             </button>
+
+                            {isPermissionMetadataMissing ? (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                                    Limited access mode
+                                </div>
+                            ) : null}
                         </div>
                     </div>
 

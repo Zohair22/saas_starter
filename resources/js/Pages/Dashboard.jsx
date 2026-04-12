@@ -96,9 +96,20 @@ function UsageRow({ label, usage, limit }) {
     );
 }
 
-function OnboardingChecklist({ hasProjects, hasMembers, hasSubscription, hasCreatedTask, hasCompletedTask, hasConnectedIntegration }) {
+function OnboardingChecklist({
+    hasProjects,
+    hasMembers,
+    hasSubscription,
+    hasCreatedTask,
+    hasCompletedTask,
+    hasReviewedLogs,
+    canManageProjects,
+    canManageMemberships,
+    canManageBilling,
+}) {
     const steps = [
         {
+            allowed: canManageProjects,
             done: hasProjects,
             label: 'Create your first project',
             description: "Set up a project to organise your team's work.",
@@ -106,6 +117,7 @@ function OnboardingChecklist({ hasProjects, hasMembers, hasSubscription, hasCrea
             cta: 'Create project',
         },
         {
+            allowed: canManageMemberships,
             done: hasMembers,
             label: 'Invite a team member',
             description: 'Collaboration is better with your team on board.',
@@ -113,6 +125,7 @@ function OnboardingChecklist({ hasProjects, hasMembers, hasSubscription, hasCrea
             cta: 'Invite member',
         },
         {
+            allowed: canManageBilling,
             done: hasSubscription,
             label: 'Choose a subscription plan',
             description: 'Unlock higher limits and features with a paid plan.',
@@ -120,6 +133,7 @@ function OnboardingChecklist({ hasProjects, hasMembers, hasSubscription, hasCrea
             cta: 'View plans',
         },
         {
+            allowed: canManageProjects,
             done: hasCreatedTask,
             label: 'Create first task',
             description: 'Add your first task to kick off execution.',
@@ -127,6 +141,7 @@ function OnboardingChecklist({ hasProjects, hasMembers, hasSubscription, hasCrea
             cta: 'Create task',
         },
         {
+            allowed: canManageProjects,
             done: hasCompletedTask,
             label: 'Complete first task',
             description: 'Close one task to unlock momentum.',
@@ -134,16 +149,17 @@ function OnboardingChecklist({ hasProjects, hasMembers, hasSubscription, hasCrea
             cta: 'Update task',
         },
         {
-            done: hasConnectedIntegration,
-            label: 'Connect integration',
-            description: 'Enable real-time notifications and external sync.',
-            href: '/app/settings',
-            cta: 'Connect now',
+            allowed: true,
+            done: hasReviewedLogs,
+            label: 'Review activity logs',
+            description: 'Use timeline data to keep projects on track.',
+            href: '/app/logs?tab=activity',
+            cta: 'Open logs',
         },
-    ];
+    ].filter((step) => step.allowed);
 
     const completedCount = steps.filter((s) => s.done).length;
-    if (completedCount === steps.length) return null;
+    if (steps.length === 0 || completedCount === steps.length) return null;
 
     return (
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -398,13 +414,15 @@ function RevenueChart({ usage, billing, loading }) {
     );
 }
 
-function QuickActionsWidget({ isOwner, isOwnerOrAdmin }) {
+function QuickActionsWidget({ permissions }) {
     const actions = [
-        { href: '/app/projects/create', label: 'Create Project' },
-        { href: '/app/projects', label: 'Create Task' },
-        { href: '/app/memberships', label: 'Invite Member' },
-        { href: '/app/logs?tab=audit', label: 'Generate Report' },
+        { href: '/app/projects/create', label: 'Create Project', allowed: permissions.canManageProjects },
+        { href: '/app/projects', label: 'Create Task', allowed: permissions.canManageProjects },
+        { href: '/app/memberships', label: 'Invite Member', allowed: permissions.canManageMemberships },
+        { href: '/app/logs?tab=activity', label: 'View Activity Logs', allowed: permissions.isTenantMember },
+        { href: '/app/logs?tab=audit', label: 'Review Audit Logs', allowed: permissions.canManageBilling },
     ];
+    const visibleActions = actions.filter((action) => action.allowed);
 
     return (
         <section className="mt-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-sky-50 via-white to-amber-50 p-4 shadow-sm sm:mt-6 sm:p-5">
@@ -416,7 +434,7 @@ function QuickActionsWidget({ isOwner, isOwnerOrAdmin }) {
                 <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">Fast lane</span>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                {actions.map((action) => (
+                {visibleActions.map((action) => (
                     <Link
                         key={action.href}
                         href={action.href}
@@ -425,20 +443,12 @@ function QuickActionsWidget({ isOwner, isOwnerOrAdmin }) {
                         {action.label}
                     </Link>
                 ))}
-                {isOwner && (
+                {permissions.canManageBilling && (
                     <Link
                         href="/app/billing"
                         className="flex min-h-11 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
                         Upgrade Plan
-                    </Link>
-                )}
-                {!isOwner && isOwnerOrAdmin && (
-                    <Link
-                        href="/app/billing"
-                        className="flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-                    >
-                        Billing
                     </Link>
                 )}
             </div>
@@ -481,7 +491,7 @@ function LiveActivityTimeline({ items, loading, isLive }) {
 
 export default function Dashboard() {
     const session = useAppSession();
-    const { isLoading, tenantId, tenants, user } = session;
+    const { isLoading, tenantId, tenants, user, permissions } = session;
     const currentTenant = tenants.find((tenant) => String(tenant.id) === String(tenantId));
 
     const [dataLoading, setDataLoading] = useState(true);
@@ -493,7 +503,6 @@ export default function Dashboard() {
     const [myTasks, setMyTasks] = useState([]);
     const [tasksLoading, setTasksLoading] = useState(true);
     const [allTasks, setAllTasks] = useState([]);
-    const [currentMembership, setCurrentMembership] = useState(null);
     const [auditLogs, setAuditLogs] = useState([]);
     const [timelineItems, setTimelineItems] = useState([]);
     const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
@@ -515,10 +524,7 @@ export default function Dashboard() {
             if (projRes.status === 'fulfilled') setProjects(projRes.value?.data?.data ?? []);
             if (membRes.status === 'fulfilled') {
                 setMemberships(membRes.value?.data?.data ?? []);
-                const membership = membRes.value?.data?.meta?.current_membership?.data ?? null;
-                setCurrentMembership(membership);
-
-                const canManageInvitations = !!membership?.role_flags?.is_owner || !!membership?.role_flags?.is_admin;
+                const canManageInvitations = Boolean(permissions.canManageInvitations);
                 if (canManageInvitations) {
                     try {
                         const invitationsResponse = await window.axios.get('/api/v1/invitations');
@@ -529,9 +535,10 @@ export default function Dashboard() {
                 }
             }
             if (plansRes.status === 'fulfilled') {
+                const rawPlans = plansRes.value?.data?.plans;
                 setBilling({
                     subscription: plansRes.value?.data?.subscription ?? null,
-                    plans: plansRes.value?.data?.plans?.data ?? [],
+                    plans: Array.isArray(rawPlans) ? rawPlans : Array.isArray(rawPlans?.data) ? rawPlans.data : [],
                 });
             }
             if (usageRes.status === 'fulfilled') setUsage(usageRes.value?.data ?? null);
@@ -545,7 +552,7 @@ export default function Dashboard() {
         };
 
         loadDashboard();
-    }, [isLoading]);
+    }, [isLoading, permissions.canManageInvitations]);
 
     useEffect(() => {
         if (dataLoading) return;
@@ -675,8 +682,9 @@ export default function Dashboard() {
     }, {});
 
     // Role gating
-    const isOwner = !!currentMembership?.role_flags?.is_owner;
-    const isOwnerOrAdmin = isOwner || !!currentMembership?.role_flags?.is_admin;
+    const canManageProjects = Boolean(permissions.canManageProjects);
+    const canManageMemberships = Boolean(permissions.canManageMemberships);
+    const canManageBilling = Boolean(permissions.canManageBilling);
 
         // Project activity chart (last 4 weeks)
         const nowDate = new Date();
@@ -724,26 +732,26 @@ export default function Dashboard() {
 
     // Smart alerts
     const alerts = [];
-    if (!dataLoading && !billing?.subscription) {
+    if (!dataLoading && canManageBilling && !billing?.subscription) {
         alerts.push({ type: 'info', message: 'No active subscription \u2014 choose a plan to unlock full access.', href: '/app/billing', cta: 'View plans' });
     }
-    if (!dataLoading && ['past_due', 'incomplete', 'unpaid'].includes(String(billing?.subscription?.stripe_status ?? ''))) {
+    if (!dataLoading && canManageBilling && ['past_due', 'incomplete', 'unpaid'].includes(String(billing?.subscription?.stripe_status ?? ''))) {
         alerts.push({ type: 'warning', message: 'Payment failed. Update your billing method to avoid service disruption.', href: '/app/billing', cta: 'Fix payment' });
     }
-    if (!dataLoading && billing?.subscription?.ends_at && new Date(billing.subscription.ends_at) < new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)) {
+    if (!dataLoading && canManageBilling && billing?.subscription?.ends_at && new Date(billing.subscription.ends_at) < new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)) {
         alerts.push({ type: 'warning', message: 'Subscription is expiring soon. Renew to keep access uninterrupted.', href: '/app/billing', cta: 'Renew' });
     }
-    if (!dataLoading && userUtilization !== null && userUtilization >= 80) {
+    if (!dataLoading && canManageBilling && userUtilization !== null && userUtilization >= 80) {
         alerts.push({ type: 'warning', message: `Team seat usage is at ${userUtilization}% \u2014 approaching the plan limit.`, href: '/app/billing', cta: 'Upgrade' });
     }
-    if (!dataLoading && projUtilization !== null && projUtilization >= 80) {
+    if (!dataLoading && canManageBilling && projUtilization !== null && projUtilization >= 80) {
         alerts.push({ type: 'warning', message: `Project usage is at ${projUtilization}% \u2014 consider upgrading your plan.`, href: '/app/billing', cta: 'Upgrade' });
     }
-    if (!dataLoading && (usage?.utilization?.api_rate_limit ?? 0) >= 85) {
+    if (!dataLoading && canManageBilling && (usage?.utilization?.api_rate_limit ?? 0) >= 85) {
         alerts.push({ type: 'warning', message: 'Storage/API usage is almost full. Consider upgrading before throttling starts.', href: '/app/billing', cta: 'View limits' });
     }
     if (!window?.Echo) {
-        alerts.push({ type: 'info', message: 'Realtime integration appears disconnected. Live updates are currently limited.', href: '/app/settings', cta: 'Check settings' });
+        alerts.push({ type: 'info', message: 'Realtime integration appears disconnected. Live updates are currently limited.', href: '/app/logs?tab=activity', cta: 'Open logs' });
     }
     if (!dataLoading && unassignedTasks > 0) {
         alerts.push({ type: 'warning', message: `${unassignedTasks} task${unassignedTasks > 1 ? 's are' : ' is'} unassigned. Assign owners to avoid delays.`, href: '/app/projects', cta: 'Assign tasks' });
@@ -804,23 +812,27 @@ export default function Dashboard() {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <Link
-                            href="/app/projects/create"
-                            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
-                        >
-                            + New project
-                        </Link>
-                        <Link
-                            href="/app/memberships"
-                            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-                        >
-                            + Invite member
-                        </Link>
+                        {canManageProjects && (
+                            <Link
+                                href="/app/projects/create"
+                                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                            >
+                                + New project
+                            </Link>
+                        )}
+                        {canManageMemberships && (
+                            <Link
+                                href="/app/memberships"
+                                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+                            >
+                                + Invite member
+                            </Link>
+                        )}
                     </div>
                 </div>
             </section>
 
-            <QuickActionsWidget isOwner={isOwner} isOwnerOrAdmin={isOwnerOrAdmin} />
+            <QuickActionsWidget permissions={permissions} />
 
             {/* KPI cards */}
             <section className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
@@ -861,7 +873,7 @@ export default function Dashboard() {
             <section className="mt-5 grid gap-4 sm:mt-6 sm:grid-cols-2 xl:grid-cols-3">
                 <ProjectActivityChart weeks={activityWeeks} maxVal={maxActivityVal} loading={tasksLoading} />
                 <TeamProductivityChart members={teamProductivity} maxVal={maxProductivity} loading={tasksLoading} />
-                {isOwnerOrAdmin && (
+                {canManageBilling && (
                     <RevenueChart usage={usage} billing={billing} loading={dataLoading} />
                 )}
             </section>
@@ -928,7 +940,7 @@ export default function Dashboard() {
                         href="/app/memberships"
                         className="mt-4 inline-flex min-h-9 w-full items-center justify-center rounded-lg border border-slate-300 bg-slate-50 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
                     >
-                        + Invite member
+                        {canManageMemberships ? '+ Invite member' : 'View members'}
                     </Link>
                 </article>
 
@@ -940,7 +952,7 @@ export default function Dashboard() {
                             Manage
                         </Link>
                     </div>
-                    {isOwnerOrAdmin ? (
+                    {canManageBilling ? (
                         <>
                             <p className={`mt-2 text-lg font-bold text-slate-900 ${dataLoading ? 'animate-pulse text-slate-200' : ''}`}>
                                 {dataLoading ? '\u2014' : planName}
@@ -961,14 +973,14 @@ export default function Dashboard() {
                             </Link>
                         </>
                     ) : (
-                        <p className="mt-3 text-sm text-slate-500">Billing details are available to owner/admin only.</p>
+                        <p className="mt-3 text-sm text-slate-500">Billing management is restricted to owner/admin roles.</p>
                     )}
                 </article>
 
                 {/* Role-based focus */}
                 <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Role focus</p>
-                    {!isOwnerOrAdmin ? (
+                    {!canManageProjects ? (
                         <ul className="mt-3 space-y-2 text-sm text-slate-700">
                             <li className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">My tasks due today: <strong>{myTasksDueToday}</strong></li>
                             <li className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">Overdue tasks: <strong>{myOverdueTasks}</strong></li>
@@ -976,7 +988,7 @@ export default function Dashboard() {
                         </ul>
                     ) : (
                         <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                            <li className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">Tasks needing approval: <strong>{tasksNeedingApproval}</strong></li>
+                            <li className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">Completed tasks: <strong>{tasksNeedingApproval}</strong></li>
                             <li className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">Projects without activity: <strong>{projectsWithoutActivity}</strong></li>
                             <li className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">Pending invites: <strong>{pendingInvitesCount || 0}</strong></li>
                         </ul>
@@ -1002,7 +1014,10 @@ export default function Dashboard() {
                         hasSubscription={!!billing?.subscription}
                         hasCreatedTask={allTasks.length > 0}
                         hasCompletedTask={allTasks.some((task) => task.status === 'done')}
-                        hasConnectedIntegration={!!window?.Echo}
+                        hasReviewedLogs={recentActivity.length > 0}
+                        canManageProjects={canManageProjects}
+                        canManageMemberships={canManageMemberships}
+                        canManageBilling={canManageBilling}
                     />
                 </div>
             )}

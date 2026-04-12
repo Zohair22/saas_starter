@@ -8,7 +8,8 @@ import useToast from '../../hooks/useToast';
 export default function ProjectsCreate() {
     const session = useAppSession();
     const toast = useToast();
-    const { isLoading } = session;
+    const { isLoading, permissions = {} } = session;
+    const canManageProjects = Boolean(permissions.canManageProjects);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [errors, setErrors] = useState({});
@@ -20,6 +21,12 @@ export default function ProjectsCreate() {
         setErrors({});
         setMessage('');
         setIsSubmitting(true);
+
+        if (!canManageProjects) {
+            setMessage('You do not have permission to create projects in this tenant.');
+            setIsSubmitting(false);
+            return;
+        }
 
         try {
             const response = await window.axios.post('/api/v1/projects', {
@@ -56,6 +63,10 @@ export default function ProjectsCreate() {
                     Back to projects
                 </Link>
             </div>
+
+            {!canManageProjects && (
+                <InlineNotice message="Project creation is restricted to owner/admin roles for this tenant." className="mb-4" />
+            )}
 
             <div className="grid gap-4 lg:grid-cols-3">
                 <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
@@ -96,7 +107,7 @@ export default function ProjectsCreate() {
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={!canManageProjects || isSubmitting}
                             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {isSubmitting ? 'Saving...' : 'Create project'}

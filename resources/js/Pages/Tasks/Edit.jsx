@@ -9,7 +9,8 @@ const priorityOptions = ['low', 'medium', 'high'];
 
 export default function TasksEdit({ projectId, taskId }) {
     const session = useAppSession();
-    const { isLoading } = session;
+    const { isLoading, permissions = {} } = session;
+    const canManageProjects = Boolean(permissions.canManageProjects);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [status, setStatus] = useState('open');
@@ -46,6 +47,12 @@ export default function TasksEdit({ projectId, taskId }) {
         setMessage('');
         setIsSubmitting(true);
 
+        if (!canManageProjects) {
+            setMessage('You do not have permission to edit tasks in this tenant.');
+            setIsSubmitting(false);
+            return;
+        }
+
         try {
             await window.axios.patch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
                 title,
@@ -78,6 +85,10 @@ export default function TasksEdit({ projectId, taskId }) {
                     Back to task
                 </Link>
             </div>
+
+            {!canManageProjects && (
+                <InlineNotice message="Task editing is restricted to owner/admin roles for this tenant." className="mb-4" />
+            )}
 
             <div className="grid gap-4 lg:grid-cols-3">
                 <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
@@ -159,7 +170,7 @@ export default function TasksEdit({ projectId, taskId }) {
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={!canManageProjects || isSubmitting}
                             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {isSubmitting ? 'Saving...' : 'Save changes'}

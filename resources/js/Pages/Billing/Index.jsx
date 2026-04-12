@@ -39,7 +39,8 @@ const formatPercent = (value) => {
 
 export default function BillingIndex() {
     const session = useAppSession();
-    const { isLoading } = session;
+    const { isLoading, permissions = {} } = session;
+    const canManageBilling = Boolean(permissions.canManageBilling);
     const [isPageLoading, setIsPageLoading] = useState(true);
     const [plans, setPlans] = useState([]);
     const [subscription, setSubscription] = useState(null);
@@ -116,6 +117,11 @@ export default function BillingIndex() {
         setError('');
         setPendingPaymentId('');
 
+        if (!canManageBilling) {
+            setError('Only owner/admin can manage subscriptions for this tenant.');
+            return;
+        }
+
         try {
             const response = await window.axios.post('/api/v1/billing/subscribe', {
                 plan_code: planCode,
@@ -137,6 +143,11 @@ export default function BillingIndex() {
         setMessage('');
         setError('');
 
+        if (!canManageBilling) {
+            setError('Only owner/admin can manage subscriptions for this tenant.');
+            return;
+        }
+
         try {
             const response = await window.axios.patch('/api/v1/billing/subscription', {
                 plan_code: planCode,
@@ -150,6 +161,11 @@ export default function BillingIndex() {
     };
 
     const handleCancel = async () => {
+        if (!canManageBilling) {
+            setError('Only owner/admin can manage subscriptions for this tenant.');
+            return;
+        }
+
         setIsCancellingSubscription(true);
 
         setMessage('');
@@ -277,38 +293,46 @@ export default function BillingIndex() {
                                 </select>
                             </label>
 
-                            <label className="block">
-                                <span className="mb-1 block text-sm font-medium text-slate-700">Payment method (optional)</span>
-                                <input
-                                    type="text"
-                                    value={paymentMethod}
-                                    onChange={(event) => setPaymentMethod(event.target.value)}
-                                    placeholder="pm_xxx"
-                                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                                />
-                            </label>
+                            {canManageBilling && (
+                                <label className="block">
+                                    <span className="mb-1 block text-sm font-medium text-slate-700">Payment method (optional)</span>
+                                    <input
+                                        type="text"
+                                        value={paymentMethod}
+                                        onChange={(event) => setPaymentMethod(event.target.value)}
+                                        placeholder="pm_xxx"
+                                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                    />
+                                </label>
+                            )}
                         </div>
 
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            <button type="submit" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                                Subscribe
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleSwap}
-                                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                            >
-                                Swap plan
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setShowCancelModal(true)}
-                                className="rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-                            >
-                                Cancel subscription
-                            </button>
-                        </div>
-                        <p className="text-xs text-slate-500">Tip: use Swap plan for in-place upgrades/downgrades. Use Cancel only when you intend to stop billing for this tenant.</p>
+                        {canManageBilling ? (
+                            <>
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    <button type="submit" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                                        Subscribe
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSwap}
+                                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                                    >
+                                        Swap plan
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCancelModal(true)}
+                                        className="rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                                    >
+                                        Cancel subscription
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500">Tip: use Swap plan for in-place upgrades/downgrades. Use Cancel only when you intend to stop billing for this tenant.</p>
+                            </>
+                        ) : (
+                            <p className="text-xs text-slate-500">Plan details are visible to all tenant members. Subscription changes require owner/admin access.</p>
+                        )}
                     </form>
 
                     <InlineNotice type="success" message={message} className="mt-4" />

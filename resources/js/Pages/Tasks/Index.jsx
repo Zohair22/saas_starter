@@ -12,7 +12,8 @@ import { priorityBadgeClass, statusBadgeClass } from '../../utils/badgeClasses';
 export default function TasksIndex({ projectId }) {
     const session = useAppSession();
     const toast = useToast();
-    const { isLoading, tenantId } = session;
+    const { isLoading, tenantId, permissions = {} } = session;
+    const canManageProjects = Boolean(permissions.canManageProjects);
     const [isPageLoading, setIsPageLoading] = useState(true);
     const [project, setProject] = useState(null);
     const [tasks, setTasks] = useState([]);
@@ -152,12 +153,14 @@ export default function TasksIndex({ projectId }) {
                         ) : null}
                     </div>
                 </div>
-                <Link
-                    href={`/app/projects/${projectId}/tasks/create`}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                >
-                    New task
-                </Link>
+                {canManageProjects && (
+                    <Link
+                        href={`/app/projects/${projectId}/tasks/create`}
+                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                    >
+                        New task
+                    </Link>
+                )}
             </div>
 
             <InlineNotice message={message} className="mb-4" />
@@ -286,19 +289,23 @@ export default function TasksIndex({ projectId }) {
                                         >
                                             View
                                         </Link>
-                                        <Link
-                                            href={`/app/projects/${projectId}/tasks/${task.id}/edit`}
-                                            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                                        >
-                                            Edit
-                                        </Link>
-                                        <button
-                                            type="button"
-                                            onClick={() => setTaskToDelete(task.id)}
-                                            className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50"
-                                        >
-                                            Delete
-                                        </button>
+                                        {canManageProjects && (
+                                            <>
+                                                <Link
+                                                    href={`/app/projects/${projectId}/tasks/${task.id}/edit`}
+                                                    className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                                >
+                                                    Edit
+                                                </Link>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTaskToDelete(task.id)}
+                                                    className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 </td>
                             </tr>

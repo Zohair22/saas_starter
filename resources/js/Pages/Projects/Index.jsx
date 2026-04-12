@@ -10,7 +10,8 @@ import useToast from '../../hooks/useToast';
 export default function ProjectsIndex() {
     const session = useAppSession();
     const toast = useToast();
-    const { isLoading } = session;
+    const { isLoading, permissions = {} } = session;
+    const canManageProjects = Boolean(permissions.canManageProjects);
     const [isPageLoading, setIsPageLoading] = useState(true);
     const [projects, setProjects] = useState([]);
     const [message, setMessage] = useState('');
@@ -106,15 +107,17 @@ export default function ProjectsIndex() {
                         </article>
                         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                             <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Total projects</p>
-                            <p className="mt-2 text-2xl font-semibold text-slate-900">{projects.length}</p>
+                            <p className="mt-2 text-2xl font-semibold text-slate-900">{pagination.total}</p>
                         </article>
                     </div>
 
                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm text-slate-600">Track all projects in your active tenant context.</p>
-                        <Link href="/app/projects/create" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">
-                            New project
-                        </Link>
+                        {canManageProjects && (
+                            <Link href="/app/projects/create" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">
+                                New project
+                            </Link>
+                        )}
                     </div>
 
                     <InlineNotice message={message} className="mb-4" />
@@ -194,24 +197,28 @@ export default function ProjectsIndex() {
                                                     View
                                                 </Link>
                                                 <Link
-                                                    href={`/app/projects/${project.id}/edit`}
-                                                    className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                                                >
-                                                    Edit
-                                                </Link>
-                                                <Link
                                                     href={`/app/projects/${project.id}/tasks`}
                                                     className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                                                 >
                                                     Tasks
                                                 </Link>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setProjectToDelete(project.id)}
-                                                    className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50"
-                                                >
-                                                    Delete
-                                                </button>
+                                                {canManageProjects && (
+                                                    <>
+                                                        <Link
+                                                            href={`/app/projects/${project.id}/edit`}
+                                                            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                                        >
+                                                            Edit
+                                                        </Link>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setProjectToDelete(project.id)}
+                                                            className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
