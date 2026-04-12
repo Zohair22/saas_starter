@@ -8,7 +8,9 @@ use Modules\Billing\Http\Controllers\StripeWebhookController;
 use Modules\Billing\Http\Controllers\UsageDashboardController;
 
 Route::prefix('v1')->group(function () {
-    Route::post('billing/webhook', [StripeWebhookController::class, 'handleWebhook'])->name('billing.webhook');
+    Route::post('billing/webhook', [StripeWebhookController::class, 'handleWebhook'])
+        ->middleware('throttle:stripe-webhook')
+        ->name('billing.webhook');
 
     Route::middleware(['auth:sanctum', 'tenant', 'tenant.member', 'throttle:api', 'tenant.api.rate'])->group(function () {
         Route::get('billing/plans', [BillingController::class, 'index'])->name('billing.plans');

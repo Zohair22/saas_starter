@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -29,6 +30,23 @@ return Application::configure(basePath: dirname(__DIR__))
         attributes: ['middleware' => ['auth:sanctum']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $trustedProxies = env('TRUSTED_PROXIES', '*');
+
+        if (is_string($trustedProxies) && $trustedProxies !== '*') {
+            $trustedProxies = array_values(array_filter(array_map('trim', explode(',', $trustedProxies))));
+        }
+
+        $middleware->trustProxies(
+            at: $trustedProxies,
+            headers: Request::HEADER_X_FORWARDED_FOR |
+                Request::HEADER_X_FORWARDED_HOST |
+                Request::HEADER_X_FORWARDED_PORT |
+                Request::HEADER_X_FORWARDED_PROTO |
+                Request::HEADER_X_FORWARDED_AWS_ELB,
+        );
+
+        $middleware->append(AddSecurityHeaders::class);
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);

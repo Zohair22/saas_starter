@@ -10,8 +10,8 @@ use Modules\User\Http\Controllers\Api\V1\UserController;
 
 Route::middleware(['api'])->prefix('v1')->group(function () {
     // Public authentication endpoints
-    Route::post('register', [UserController::class, 'store']);
-    Route::post('login', [UserController::class, 'login']);
+    Route::post('register', [UserController::class, 'store'])->middleware('throttle:auth');
+    Route::post('login', [UserController::class, 'login'])->middleware('throttle:auth');
 
     // Protected user endpoints
     Route::middleware(['auth:sanctum'])->group(function () {
