@@ -23,6 +23,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('auth', function (Request $request) {
+            $email = strtolower((string) $request->input('email', 'guest'));
+
+            return Limit::perMinute(10)->by($email.'|'.$request->ip());
+        });
+
+        RateLimiter::for('stripe-webhook', function (Request $request) {
+            $limit = (int) config('cashier.webhook.rate_limit', 120);
+            $signature = (string) $request->header('Stripe-Signature', 'unsigned');
+
+            return Limit::perMinute($limit)->by($signature.'|'.$request->ip());
+        });
+
         RateLimiter::for('api', function (Request $request) {
             /** @var Tenants|null $tenant */
             $tenant = app()->has('tenant') ? app('tenant') : null;
