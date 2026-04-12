@@ -16,6 +16,9 @@ export default function ProfileSettingsPage() {
     const [deletePassword, setDeletePassword] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [isSavingPassword, setIsSavingPassword] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -28,6 +31,7 @@ export default function ProfileSettingsPage() {
         event.preventDefault();
         setMessage('');
         setError('');
+        setIsSavingProfile(true);
 
         try {
             const response = await window.axios.patch('/api/v1/profile', { name, email });
@@ -37,6 +41,8 @@ export default function ProfileSettingsPage() {
             setMessage('Profile updated successfully.');
         } catch (requestError) {
             setError(requestError?.response?.data?.message ?? 'Unable to update profile.');
+        } finally {
+            setIsSavingProfile(false);
         }
     };
 
@@ -44,6 +50,7 @@ export default function ProfileSettingsPage() {
         event.preventDefault();
         setMessage('');
         setError('');
+        setIsSavingPassword(true);
 
         try {
             await window.axios.patch('/api/v1/profile/password', {
@@ -58,6 +65,8 @@ export default function ProfileSettingsPage() {
             setMessage('Password updated successfully.');
         } catch (requestError) {
             setError(requestError?.response?.data?.message ?? 'Unable to update password.');
+        } finally {
+            setIsSavingPassword(false);
         }
     };
 
@@ -65,6 +74,7 @@ export default function ProfileSettingsPage() {
         event.preventDefault();
         setMessage('');
         setError('');
+        setIsDeletingAccount(true);
 
         try {
             await window.axios.delete('/api/v1/profile', {
@@ -75,6 +85,8 @@ export default function ProfileSettingsPage() {
             window.location.href = '/register';
         } catch (requestError) {
             setError(requestError?.response?.data?.message ?? 'Unable to delete account.');
+        } finally {
+            setIsDeletingAccount(false);
         }
     };
 
@@ -86,6 +98,12 @@ export default function ProfileSettingsPage() {
         <AppLayout title="Profile Settings" session={session}>
             <div className="space-y-4">
                 <InlineNotice message={message} error={error} />
+
+                <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 p-5 text-white shadow-sm">
+                    <p className="text-xs font-semibold tracking-wide uppercase text-slate-200">Account overview</p>
+                    <h2 className="mt-1 text-xl font-semibold">{user?.name ?? 'User account'}</h2>
+                    <p className="mt-1 text-sm text-slate-200">{user?.email ?? '-'}</p>
+                </section>
 
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h2 className="text-base font-semibold text-slate-900">Profile</h2>
@@ -100,8 +118,12 @@ export default function ProfileSettingsPage() {
                             <input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
                         </label>
                         <div className="sm:col-span-2">
-                            <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
-                                Save profile
+                            <button
+                                type="submit"
+                                disabled={isSavingProfile}
+                                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isSavingProfile ? 'Saving...' : 'Save profile'}
                             </button>
                         </div>
                     </form>
@@ -124,8 +146,12 @@ export default function ProfileSettingsPage() {
                             <input type="password" value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
                         </label>
                         <div className="sm:col-span-2">
-                            <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
-                                Update password
+                            <button
+                                type="submit"
+                                disabled={isSavingPassword}
+                                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isSavingPassword ? 'Updating...' : 'Update password'}
                             </button>
                         </div>
                     </form>
@@ -139,8 +165,12 @@ export default function ProfileSettingsPage() {
                             Confirm password
                             <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="mt-1 w-full rounded-lg border border-rose-300 px-3 py-2" />
                         </label>
-                        <button type="submit" className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800">
-                            Delete account
+                        <button
+                            type="submit"
+                            disabled={isDeletingAccount}
+                            className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isDeletingAccount ? 'Deleting...' : 'Delete account'}
                         </button>
                     </form>
                 </section>
