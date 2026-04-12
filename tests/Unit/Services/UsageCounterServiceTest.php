@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Billing\Models\TenantUsageCounter;
 use Modules\Billing\Services\UsageCounterService;
 use Modules\Membership\Enums\MembershipRole;
 use Modules\Membership\Models\Membership;
@@ -131,5 +132,19 @@ class UsageCounterServiceTest extends TestCase
 
         $this->assertSame(1, $this->service->getCurrentPeriodUsage($this->tenant->id, 'max_users'));
         $this->assertSame(2, $this->service->getCurrentPeriodUsage($this->tenant->id, 'max_projects'));
+    }
+
+    public function test_sync_tenant_usage_does_not_create_duplicate_monthly_counter(): void
+    {
+        $this->service->syncTenantUsage($this->tenant->id);
+        $this->service->syncTenantUsage($this->tenant->id);
+
+        $this->assertSame(
+            1,
+            TenantUsageCounter::query()
+                ->where('tenant_id', $this->tenant->id)
+                ->where('period_start', now()->startOfMonth()->toDateString())
+                ->count()
+        );
     }
 }

@@ -25,6 +25,10 @@ Route::get('/register', function () {
     return Inertia::render('Auth/Register');
 })->name('register');
 
+Route::get('/invitations/{token}', function (string $token) {
+    return Inertia::render('Auth/InvitationAccept', ['token' => $token]);
+})->name('invitations.accept');
+
 Route::get('/app', function () {
     return Inertia::render('Dashboard');
 })->name('app.dashboard');

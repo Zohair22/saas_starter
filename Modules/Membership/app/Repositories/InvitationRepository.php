@@ -7,6 +7,7 @@ use Modules\Membership\Classes\DTOs\CreateInvitationData;
 use Modules\Membership\Interfaces\Contracts\InvitationRepositoryInterface;
 use Modules\Membership\Models\Invitation;
 use Modules\Membership\Models\Membership;
+use Modules\Tenant\Models\Scopes\TenantScope;
 use Modules\User\Models\User;
 
 class InvitationRepository implements InvitationRepositoryInterface
@@ -25,6 +26,7 @@ class InvitationRepository implements InvitationRepositoryInterface
     public function findActiveByTenantAndEmail(int $tenantId, string $email): ?Invitation
     {
         return Invitation::query()
+            ->where('tenant_id', $tenantId)
             ->where('email', $email)
             ->whereNull('accepted_at')
             ->whereNull('revoked_at')
@@ -46,6 +48,7 @@ class InvitationRepository implements InvitationRepositoryInterface
     public function findActiveByToken(string $token): ?Invitation
     {
         return Invitation::query()
+            ->withoutGlobalScope(TenantScope::class)
             ->where('token', $token)
             ->whereNull('accepted_at')
             ->whereNull('revoked_at')

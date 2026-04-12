@@ -3,6 +3,7 @@
 namespace Modules\Membership\Services;
 
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -15,6 +16,7 @@ use Modules\Membership\Interfaces\Contracts\InvitationServiceInterface;
 use Modules\Membership\Models\Invitation;
 use Modules\Membership\Models\Membership;
 use Modules\Membership\Notifications\TenantInvitationNotification;
+use Modules\Tenant\Models\Tenants;
 use Modules\User\Models\User;
 
 class InvitationService implements InvitationServiceInterface
@@ -65,9 +67,16 @@ class InvitationService implements InvitationServiceInterface
         $invitation = $this->previewByToken($token);
         $user = $this->resolveUserForAcceptance($invitation, $data);
 
-        $membership = $this->invitationRepository->upsertMembershipFromInvitation($invitation, $user);
+        $membership = $this->runForTenant((int) $invitation->tenant_id, function () use ($invitation, $user): Membership {
+            return DB::transaction(function () use ($invitation, $user): Membership {
+                $membership = $this->invitationRepository->upsertMembershipFromInvitation($invitation, $user);
+                $this->invitationRepository->markAccepted($invitation);
+
+                return $membership;
+            });
+        });
+
         $this->usageCounterService->syncTenantUsage((int) $invitation->tenant_id);
-        $this->invitationRepository->markAccepted($invitation);
 
         return $membership;
     }
@@ -111,5 +120,29 @@ class InvitationService implements InvitationServiceInterface
             'email' => $invitationEmail,
             'password' => Hash::make($data->password),
         ]);
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable():T  $callback
+     * @return T
+     */
+    private function runForTenant(int $tenantId, callable $callback): mixed
+    {
+        $previousTenant = app()->has('tenant') ? app('tenant') : null;
+        $tenant = Tenants::query()->findOrFail($tenantId);
+
+        app()->instance('tenant', $tenant);
+
+        try {
+            return $callback();
+        } finally {
+            if ($previousTenant) {
+                app()->instance('tenant', $previousTenant);
+            } else {
+                app()->forgetInstance('tenant');
+            }
+        }
     }
 }

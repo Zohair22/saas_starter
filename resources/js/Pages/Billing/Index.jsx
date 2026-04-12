@@ -101,9 +101,11 @@ export default function BillingIndex() {
                     : Array.isArray(rawPlans?.data)
                         ? rawPlans.data
                         : [];
+                const fetchedSubscription = plansResponse.value?.data?.subscription ?? null;
 
                 setPlans(fetchedPlans);
-                setSubscription(plansResponse.value?.data?.subscription ?? null);
+                setSubscription(fetchedSubscription);
+                setPendingPaymentId(String(fetchedSubscription?.pending_payment_id ?? ''));
 
                 if (fetchedPlans.length > 0) {
                     const selectedExists = fetchedPlans.some((plan) => plan.code === planCode);
@@ -396,16 +398,22 @@ export default function BillingIndex() {
     const tenantLifecycle = currentTenant?.lifecycle ?? null;
     const billingStatus = currentTenant?.billing_status ?? null;
     const subscriptionStatus = subscription?.stripe_status ?? subscription?.status ?? null;
+    const normalizedSubscriptionStatus = String(subscriptionStatus ?? '').toLowerCase();
     const hasActiveSubscription = Boolean(subscription);
     const isWriteLocked = Boolean(tenantLifecycle?.is_write_locked);
     const isGraceActive = Boolean(tenantLifecycle?.is_grace_active);
     const subscriptionEndsAt = formatDate(subscription?.ends_at);
     const subscriptionCreatedAt = formatDate(subscription?.created_at);
     const trialEndsAt = formatDate(subscription?.trial_ends_at);
-    const isPaidPlan = Boolean(currentPlan?.is_paid);
+    const hasPaidSubscription = ['active', 'trialing'].includes(normalizedSubscriptionStatus);
+    const isPaymentPending = ['incomplete', 'past_due', 'unpaid'].includes(normalizedSubscriptionStatus);
+    const isPaidPlan = Boolean(currentPlan?.is_paid) && hasPaidSubscription;
     const hasPlans = plans.length > 0;
     const selectedPlan = plans.find((plan) => plan.code === planCode) ?? null;
     const hasSelectedPlan = Boolean(selectedPlan);
+    const paymentConfirmationUrl = pendingPaymentId
+        ? `/stripe/payment/${encodeURIComponent(pendingPaymentId)}?redirect=${encodeURIComponent('/app/billing')}`
+        : null;
 
     const statusBadgeClass = (() => {
         if (subscriptionStatus === 'active') {
@@ -497,8 +505,8 @@ export default function BillingIndex() {
                                             No paid subscription
                                         </span>
                                     )}
-                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${isPaidPlan ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
-                                        {isPaidPlan ? 'Paid plan' : 'Free plan'}
+                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${isPaidPlan ? 'bg-indigo-100 text-indigo-700' : isPaymentPending ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
+                                        {isPaidPlan ? 'Paid plan' : isPaymentPending ? 'Payment pending' : 'Free plan'}
                                     </span>
                                     {isGraceActive ? (
                                         <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
@@ -566,6 +574,14 @@ export default function BillingIndex() {
                                         Complete payment confirmation in Stripe. Payment ID:
                                     </p>
                                     <p className="mt-1 inline-block rounded bg-white px-2 py-1 text-xs font-mono text-amber-900">{pendingPaymentId}</p>
+                                    {paymentConfirmationUrl ? (
+                                        <a
+                                            href={paymentConfirmationUrl}
+                                            className="mt-3 inline-flex items-center rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-800"
+                                        >
+                                            Complete payment
+                                        </a>
+                                    ) : null}
                                 </div>
                             ) : null}
                         </div>

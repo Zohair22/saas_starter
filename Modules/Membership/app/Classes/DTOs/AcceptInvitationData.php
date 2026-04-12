@@ -16,7 +16,7 @@ class AcceptInvitationData
     public static function fromRequest(AcceptInvitationRequest $request): self
     {
         return new self(
-            user: $request->user(),
+            user: $request->user('sanctum'),
             name: $request->validated('name'),
             password: $request->validated('password'),
         );

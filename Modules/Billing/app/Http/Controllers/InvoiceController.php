@@ -18,24 +18,27 @@ class InvoiceController extends Controller
             return response()->json(['data' => []]);
         }
 
-        $invoices = $tenant->invoices()->map(fn ($invoice) => [
-            'id' => $invoice->id,
-            'number' => $invoice->number,
-            'status' => $invoice->status,
-            'total' => $invoice->total(),
-            'amount_paid' => $invoice->amountPaid(),
-            'amount_due' => $invoice->amountDue(),
-            'currency' => $invoice->invoice->currency ?? 'usd',
-            'period_start' => $invoice->invoice->period_start
-                ? date('Y-m-d', $invoice->invoice->period_start)
-                : null,
-            'period_end' => $invoice->invoice->period_end
-                ? date('Y-m-d', $invoice->invoice->period_end)
-                : null,
-            'created' => date('Y-m-d', $invoice->invoice->created),
-            'hosted_invoice_url' => $invoice->invoice->hosted_invoice_url ?? null,
-            'pdf_url' => $invoice->invoice->invoice_pdf ?? null,
-        ]);
+        $invoices = $tenant->invoices()->map(function ($invoice): array {
+            $stripeInvoice = $invoice->invoice;
+            $periodStart = data_get($stripeInvoice, 'period_start');
+            $periodEnd = data_get($stripeInvoice, 'period_end');
+            $created = data_get($stripeInvoice, 'created');
+
+            return [
+                'id' => $invoice->id,
+                'number' => $invoice->number,
+                'status' => $invoice->status,
+                'total' => $invoice->total(),
+                'amount_paid' => $invoice->amountPaid(),
+                'amount_due' => $invoice->amountDue(),
+                'currency' => data_get($stripeInvoice, 'currency', 'usd'),
+                'period_start' => $periodStart ? date('Y-m-d', (int) $periodStart) : null,
+                'period_end' => $periodEnd ? date('Y-m-d', (int) $periodEnd) : null,
+                'created' => $created ? date('Y-m-d', (int) $created) : null,
+                'hosted_invoice_url' => data_get($stripeInvoice, 'hosted_invoice_url'),
+                'pdf_url' => data_get($stripeInvoice, 'invoice_pdf'),
+            ];
+        });
 
         return response()->json(['data' => $invoices]);
     }

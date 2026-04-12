@@ -30,7 +30,7 @@ class TenantInvitationNotification extends Notification implements ShouldQueue
     {
         $tenantName = data_get($this->invitation, 'tenant.name', 'your workspace');
         $inviterName = data_get($this->invitation, 'inviter.name', 'A team admin');
-        $acceptUrl = url('/api/v1/invitations/'.$this->invitation->token);
+        $acceptUrl = url('/invitations/'.$this->invitation->token);
 
         return (new MailMessage)
             ->subject('You are invited to join '.$tenantName)

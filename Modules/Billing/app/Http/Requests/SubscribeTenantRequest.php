@@ -11,7 +11,7 @@ class SubscribeTenantRequest extends FormRequest
     {
         return [
             'plan_code' => ['required', 'string', Rule::exists('plans', 'code')->where('is_active', true)],
-            'payment_method' => ['nullable', 'string'],
+            'payment_method' => ['nullable', 'string', 'starts_with:pm_'],
         ];
     }
 

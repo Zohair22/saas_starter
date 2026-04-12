@@ -82,7 +82,7 @@ class PaymentMethodController extends Controller
     private function formatPaymentMethod(mixed $pm, ?string $defaultId): array
     {
         $card = $pm->card ?? null;
-        $sepa = $pm->sepaDebit ?? null;
+        $sepa = $pm->sepaDebit ?? $pm->sepa_debit ?? null;
         $type = $pm->type ?? 'unknown';
 
         return [
@@ -93,7 +93,7 @@ class PaymentMethodController extends Controller
             'last4' => $card?->last4 ?? $sepa?->last4 ?? null,
             'exp_month' => $card?->exp_month ?? null,
             'exp_year' => $card?->exp_year ?? null,
-            'name' => $pm->billingDetails()?->name ?? null,
+            'name' => data_get($pm, 'billing_details.name') ?? data_get($pm, 'billingDetails.name'),
         ];
     }
 }

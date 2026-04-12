@@ -83,20 +83,25 @@ class UsageCounterService implements UsageCounterServiceInterface
     {
         $periodStart = now()->startOfMonth()->toDateString();
 
-        $counter = $this->runForTenant($tenantId, fn () => TenantUsageCounter::query()
-            ->whereDate('period_start', $periodStart)
-            ->first());
+        return $this->runForTenant($tenantId, function () use ($tenantId, $periodStart): TenantUsageCounter {
+            TenantUsageCounter::query()->upsert(
+                values: [[
+                    'tenant_id' => $tenantId,
+                    'period_start' => $periodStart,
+                    'users_count' => 0,
+                    'projects_count' => 0,
+                    'api_requests_count' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]],
+                uniqueBy: ['tenant_id', 'period_start'],
+                update: []
+            );
 
-        if ($counter) {
-            return $counter;
-        }
-
-        return $this->runForTenant($tenantId, fn () => TenantUsageCounter::query()->create([
-            'period_start' => $periodStart,
-            'users_count' => 0,
-            'projects_count' => 0,
-            'api_requests_count' => 0,
-        ]));
+            return TenantUsageCounter::query()
+                ->where('period_start', $periodStart)
+                ->firstOrFail();
+        });
     }
 
     /**

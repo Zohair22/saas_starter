@@ -27,15 +27,19 @@ class BillingRepository implements BillingRepositoryInterface
 
     public function subscribe(Tenants $tenant, Plan $plan, ?string $paymentMethod): ?Subscription
     {
-        $tenant->update(['plan_id' => $plan->id]);
-
         if (! $plan->stripe_price_id) {
+            $tenant->update(['plan_id' => $plan->id]);
+
             return null;
         }
 
-        return $tenant
+        $subscription = $tenant
             ->newSubscription('default', $plan->stripe_price_id)
             ->create($paymentMethod);
+
+        $tenant->update(['plan_id' => $plan->id]);
+
+        return $subscription;
     }
 
     public function swap(Tenants $tenant, Plan $plan): Subscription

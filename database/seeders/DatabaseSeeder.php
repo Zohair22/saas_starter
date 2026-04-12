@@ -24,30 +24,30 @@ class DatabaseSeeder extends Seeder
             BillingDatabaseSeeder::class,
         ]);
 
-    //     $owner = User::query()->firstOrCreate(
-    //         ['email' => 'test@example.com'],
-    //         [
-    //             'name' => 'Test User',
-    //             'password' => 'password',
-    //         ]
-    //     );
+        //     $owner = User::query()->firstOrCreate(
+        //         ['email' => 'test@example.com'],
+        //         [
+        //             'name' => 'Test User',
+        //             'password' => 'password',
+        //         ]
+        //     );
 
-    //     $tenant = Tenants::query()->firstOrCreate(
-    //         ['slug' => 'demo'],
-    //         [
-    //             'name' => 'Demo Tenant',
-    //             'owner_id' => $owner->id,
-    //         ]
-    //     );
+        //     $tenant = Tenants::query()->firstOrCreate(
+        //         ['slug' => 'demo'],
+        //         [
+        //             'name' => 'Demo Tenant',
+        //             'owner_id' => $owner->id,
+        //         ]
+        //     );
 
-    //     Membership::query()->firstOrCreate(
-    //         [
-    //             'tenant_id' => $tenant->id,
-    //             'user_id' => $owner->id,
-    //         ],
-    //         [
-    //             'role' => MembershipRole::Owner->value,
-    //         ]
-    //     );
+        //     Membership::query()->firstOrCreate(
+        //         [
+        //             'tenant_id' => $tenant->id,
+        //             'user_id' => $owner->id,
+        //         ],
+        //         [
+        //             'role' => MembershipRole::Owner->value,
+        //         ]
+        //     );
     }
 }

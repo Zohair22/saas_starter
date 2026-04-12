@@ -169,11 +169,54 @@ class BillingServiceTest extends TestCase
         request()->attributes->set('tenant', $tenant);
 
         $repository->shouldReceive('findPlanByCode')->once()->with('growth')->andReturn($plan);
+        $repository->shouldReceive('currentSubscription')->once()->with($tenant)->andReturn($subscription);
         $repository->shouldReceive('swap')->once()->with($tenant, $plan)->andReturn($subscription);
+
+        $subscription->shouldReceive('hasIncompletePayment')->once()->andReturn(false);
 
         $result = $service->swap($tenant, $data);
 
         $this->assertSame($subscription, $result);
+    }
+
+    public function test_swap_throws_validation_when_current_subscription_payment_is_incomplete(): void
+    {
+        /** @var BillingRepositoryInterface&MockInterface $repository */
+        $repository = Mockery::mock(BillingRepositoryInterface::class);
+        $service = new BillingService($repository);
+
+        [$tenant] = $this->createTenantWithMember(MembershipRole::Owner);
+        $plan = new Plan([
+            'code' => 'growth',
+            'name' => 'Growth',
+            'max_users' => 10,
+            'max_projects' => 10,
+            'api_rate_limit' => 100,
+            'is_active' => true,
+        ]);
+        $data = new SwapSubscriptionData('growth');
+        $subscription = Mockery::mock(Subscription::class);
+
+        request()->attributes->set('tenant', $tenant);
+
+        $repository->shouldReceive('findPlanByCode')->once()->with('growth')->andReturn($plan);
+        $repository->shouldReceive('currentSubscription')->once()->with($tenant)->andReturn($subscription);
+        $repository->shouldNotReceive('swap');
+
+        $subscription->shouldReceive('hasIncompletePayment')->once()->andReturn(true);
+        $subscription->shouldReceive('latestPayment')->once()->andReturn(null);
+
+        $this->expectException(ValidationException::class);
+
+        try {
+            $service->swap($tenant, $data);
+        } catch (ValidationException $exception) {
+            $errors = $exception->errors();
+            $this->assertArrayHasKey('subscription', $errors);
+            $this->assertStringContainsString('incomplete', strtolower($errors['subscription'][0]));
+
+            throw $exception;
+        }
     }
 
     public function test_cancel_delegates_to_repository(): void

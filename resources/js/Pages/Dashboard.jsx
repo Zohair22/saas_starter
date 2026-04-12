@@ -667,7 +667,9 @@ export default function Dashboard() {
     // Derived values
     const projectCount = projects.length;
     const memberCount = memberships.length;
-    const hasPaidSubscription = Boolean(billing?.subscription);
+    const subscriptionStatus = String(billing?.subscription?.stripe_status ?? '').toLowerCase();
+    const hasSubscriptionRecord = Boolean(billing?.subscription);
+    const hasPaidSubscription = ['active', 'trialing'].includes(subscriptionStatus);
     const planName = usage?.plan?.name ?? 'Workspace tier';
     const userUtilization = usage?.utilization?.max_users ?? null;
     const projUtilization = usage?.utilization?.max_projects ?? null;
@@ -734,10 +736,10 @@ export default function Dashboard() {
 
     // Smart alerts
     const alerts = [];
-    if (!dataLoading && canManageBilling && !hasPaidSubscription) {
+    if (!dataLoading && canManageBilling && !hasSubscriptionRecord) {
         alerts.push({ type: 'info', message: 'No active paid subscription. Choose a plan if you want paid billing features.', href: '/app/billing', cta: 'View plans' });
     }
-    if (!dataLoading && canManageBilling && ['past_due', 'incomplete', 'unpaid'].includes(String(billing?.subscription?.stripe_status ?? ''))) {
+    if (!dataLoading && canManageBilling && ['past_due', 'incomplete', 'unpaid'].includes(subscriptionStatus)) {
         alerts.push({ type: 'warning', message: 'Payment failed. Update your billing method to avoid service disruption.', href: '/app/billing', cta: 'Fix payment' });
     }
     if (!dataLoading && canManageBilling && billing?.subscription?.ends_at && new Date(billing.subscription.ends_at) < new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)) {

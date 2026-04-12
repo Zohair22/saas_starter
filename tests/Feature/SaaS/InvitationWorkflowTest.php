@@ -160,6 +160,90 @@ class InvitationWorkflowTest extends TestCase
         $this->assertNotNull($invitation->refresh()->accepted_at);
     }
 
+    public function test_authenticated_user_with_matching_email_can_accept_invitation_without_name_and_password(): void
+    {
+        [$owner, $tenant] = $this->createTenantActor(MembershipRole::Owner->value);
+
+        $invitee = User::factory()->create([
+            'email' => 'existing.user@example.com',
+        ]);
+
+        $invitation = Invitation::query()->create([
+            'tenant_id' => $tenant->id,
+            'email' => $invitee->email,
+            'role' => MembershipRole::Admin->value,
+            'token' => str_repeat('e', 64),
+            'invited_by' => $owner->id,
+            'expires_at' => now()->addDays(2),
+        ]);
+
+        Sanctum::actingAs($invitee);
+
+        $response = $this->postJson('/api/v1/invitations/'.$invitation->token.'/accept');
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('memberships', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $invitee->id,
+            'role' => MembershipRole::Admin->value,
+        ]);
+        $this->assertNotNull($invitation->refresh()->accepted_at);
+    }
+
+    public function test_public_accept_endpoint_resolves_sanctum_bearer_token_user(): void
+    {
+        [$owner, $tenant] = $this->createTenantActor(MembershipRole::Owner->value);
+
+        $invitee = User::factory()->create([
+            'email' => 'api.token.accept@example.com',
+        ]);
+
+        $invitation = Invitation::query()->create([
+            'tenant_id' => $tenant->id,
+            'email' => $invitee->email,
+            'role' => MembershipRole::Member->value,
+            'token' => str_repeat('t', 64),
+            'invited_by' => $owner->id,
+            'expires_at' => now()->addDays(2),
+        ]);
+
+        $token = $invitee->createToken('invitation-test')->plainTextToken;
+
+        $response = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/invitations/'.$invitation->token.'/accept');
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('memberships', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $invitee->id,
+            'role' => MembershipRole::Member->value,
+        ]);
+        $this->assertNotNull($invitation->refresh()->accepted_at);
+    }
+
+    public function test_show_invitation_by_token_is_accessible_without_tenant_context(): void
+    {
+        [$owner, $tenant] = $this->createTenantActor(MembershipRole::Owner->value);
+
+        $invitation = Invitation::query()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'preview@example.com',
+            'role' => MembershipRole::Admin->value,
+            'token' => str_repeat('p', 64),
+            'invited_by' => $owner->id,
+            'expires_at' => now()->addDays(2),
+        ]);
+
+        $response = $this->getJson('/api/v1/invitations/'.$invitation->token);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.email', 'preview@example.com');
+        $response->assertJsonPath('data.token', $invitation->token);
+    }
+
     public function test_accepting_invalid_invitation_token_is_rejected(): void
     {
         $response = $this->postJson('/api/v1/invitations/invalid-token/accept', [

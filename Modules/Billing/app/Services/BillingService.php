@@ -12,6 +12,7 @@ use Modules\Billing\Interfaces\Contracts\BillingRepositoryInterface;
 use Modules\Billing\Interfaces\Contracts\BillingServiceInterface;
 use Modules\Billing\Models\Plan;
 use Modules\Tenant\Models\Tenants;
+use Stripe\Exception\InvalidRequestException;
 
 class BillingService implements BillingServiceInterface
 {
@@ -45,7 +46,39 @@ class BillingService implements BillingServiceInterface
         $plan = $this->billingRepository->findPlanByCode($data->planCode);
         $this->ensurePlanSupportsCurrentUsage($tenant, $plan);
 
-        return $this->billingRepository->swap($tenant, $plan);
+        $currentSubscription = $this->billingRepository->currentSubscription($tenant);
+
+        if (! $currentSubscription) {
+            throw ValidationException::withMessages([
+                'subscription' => ['No active subscription found to swap.'],
+            ]);
+        }
+
+        if ($currentSubscription->hasIncompletePayment()) {
+            $latestPayment = $currentSubscription->latestPayment();
+            $paymentId = $latestPayment?->id;
+            $message = 'The current subscription payment is incomplete. Complete payment confirmation before changing plans.';
+
+            if ($paymentId) {
+                $message .= " Payment ID: {$paymentId}.";
+            }
+
+            throw ValidationException::withMessages([
+                'subscription' => [$message],
+            ]);
+        }
+
+        try {
+            return $this->billingRepository->swap($tenant, $plan);
+        } catch (InvalidRequestException $exception) {
+            if (str_contains(strtolower($exception->getMessage()), 'payment is incomplete')) {
+                throw ValidationException::withMessages([
+                    'subscription' => ['The current subscription payment is incomplete. Complete payment confirmation before changing plans.'],
+                ]);
+            }
+
+            throw $exception;
+        }
     }
 
     public function cancel(Tenants $tenant): void

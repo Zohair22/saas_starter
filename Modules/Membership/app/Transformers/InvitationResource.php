@@ -22,6 +22,7 @@ class InvitationResource extends JsonResource
             'accepted_at' => $this->accepted_at,
             'revoked_at' => $this->revoked_at,
             'invited_by' => $this->invited_by,
+            'invited_by_name' => data_get($this->inviter, 'name'),
         ];
     }
 }
