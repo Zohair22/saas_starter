@@ -13,6 +13,7 @@ use Modules\Billing\Http\Middleware\EnsureFeatureLimit;
 use Modules\Billing\Http\Middleware\EnsureTenantApiRateLimit;
 use Modules\Tenant\Http\Middleware\EnsureTenantMembership;
 use Modules\Tenant\Http\Middleware\IdentifyTenant;
+use Modules\User\Http\Middleware\RequireMfaStepUp;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -64,6 +65,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.lifecycle' => 'Modules\\Tenant\\Http\\Middleware\\EnsureTenantLifecycleAccess',
             'feature.limit' => EnsureFeatureLimit::class,
             'tenant.api.rate' => EnsureTenantApiRateLimit::class,
+            'mfa.stepup' => RequireMfaStepUp::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

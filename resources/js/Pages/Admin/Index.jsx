@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import InlineNotice from '../../Components/InlineNotice';
+import StepUpModal from '../../Components/StepUpModal';
 import AppLayout from '../../Layouts/AppLayout';
 import useAppSession from '../../hooks/useAppSession';
 import { completeAuthentication } from '../../session';
@@ -15,6 +16,10 @@ export default function AdminPage() {
     const [targetUserId, setTargetUserId] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [showStepUpModal, setShowStepUpModal] = useState(false);
+    const [stepUpModalError, setStepUpModalError] = useState('');
+    const [isStepUpSubmitting, setIsStepUpSubmitting] = useState(false);
+    const [pendingStepUpAction, setPendingStepUpAction] = useState(null);
 
     useEffect(() => {
         if (isLoading || !isSuperAdmin) return;
@@ -28,25 +33,73 @@ export default function AdminPage() {
         });
     }, [isLoading, isSuperAdmin]);
 
+    const runImpersonation = async (stepUpPayload = {}) => {
+        const response = await window.axios.post(`/api/v1/admin/impersonate/${targetUserId}`, stepUpPayload);
+        const token = response?.data?.auth?.token;
+        const tenantId = response?.data?.auth?.tenant_id;
+
+        if (!token) {
+            setError('Impersonation token was not returned.');
+            return;
+        }
+
+        await completeAuthentication({ token, tenantId });
+    };
+
     const handleImpersonate = async (event) => {
         event.preventDefault();
         setError('');
         setMessage('');
 
         try {
-            const response = await window.axios.post(`/api/v1/admin/impersonate/${targetUserId}`);
-            const token = response?.data?.auth?.token;
-            const tenantId = response?.data?.auth?.tenant_id;
-
-            if (!token) {
-                setError('Impersonation token was not returned.');
+            await runImpersonation();
+        } catch (requestError) {
+            if (requestError?.response?.data?.step_up_required) {
+                setStepUpModalError(requestError?.response?.data?.message ?? 'MFA verification is required.');
+                setPendingStepUpAction(() => runImpersonation);
+                setShowStepUpModal(true);
                 return;
             }
 
-            await completeAuthentication({ token, tenantId });
-        } catch (requestError) {
             setError(requestError?.response?.data?.message ?? 'Unable to impersonate user.');
         }
+    };
+
+    const handleStepUpConfirm = async (credentials) => {
+        if (!pendingStepUpAction) {
+            setShowStepUpModal(false);
+            return;
+        }
+
+        setIsStepUpSubmitting(true);
+
+        try {
+            await pendingStepUpAction(credentials);
+            setShowStepUpModal(false);
+            setPendingStepUpAction(null);
+            setStepUpModalError('');
+        } catch (requestError) {
+            if (requestError?.response?.data?.step_up_required) {
+                setStepUpModalError(requestError?.response?.data?.message ?? 'Invalid MFA credentials.');
+                return;
+            }
+
+            setShowStepUpModal(false);
+            setPendingStepUpAction(null);
+            setError(requestError?.response?.data?.message ?? 'Unable to complete secure action.');
+        } finally {
+            setIsStepUpSubmitting(false);
+        }
+    };
+
+    const handleStepUpCancel = () => {
+        if (isStepUpSubmitting) {
+            return;
+        }
+
+        setShowStepUpModal(false);
+        setPendingStepUpAction(null);
+        setStepUpModalError('');
     };
 
     if (isLoading) {
@@ -123,7 +176,7 @@ export default function AdminPage() {
 
                 <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
                     <h2 className="text-base font-semibold text-amber-900">Impersonation</h2>
-                    <p className="mt-1 text-sm text-amber-800">Switch session to a target user without exposing token output in the UI.</p>
+                    <p className="mt-1 text-sm text-amber-800">Switch session to a target user without exposing token output in the UI. MFA step-up applies when enabled.</p>
                     <form onSubmit={handleImpersonate} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
                         <label className="text-sm text-amber-900">Target user ID
                             <input value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} className="mt-1 w-full rounded-lg border border-amber-300 px-3 py-2" />
@@ -132,6 +185,16 @@ export default function AdminPage() {
                     </form>
                 </section>
             </div>
+
+            <StepUpModal
+                open={showStepUpModal}
+                title="Verify Before Impersonation"
+                description="Confirm this admin action with your authenticator code or a recovery code."
+                error={stepUpModalError}
+                isProcessing={isStepUpSubmitting}
+                onConfirm={handleStepUpConfirm}
+                onCancel={handleStepUpCancel}
+            />
         </AppLayout>
     );
 }

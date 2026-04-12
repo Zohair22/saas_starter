@@ -17,6 +17,7 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'is_super_admin' => (bool) $this->is_super_admin,
+            'mfa_enabled' => (bool) $this->mfa_enabled,
             'email_verified_at' => $this->email_verified_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

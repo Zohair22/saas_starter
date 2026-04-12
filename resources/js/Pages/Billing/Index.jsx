@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import ConfirmDialog from '../../Components/ConfirmDialog';
 import InlineNotice from '../../Components/InlineNotice';
 import { CardSkeleton, TableSkeleton } from '../../Components/LoadingSkeleton';
+import StepUpModal from '../../Components/StepUpModal';
 import AppLayout from '../../Layouts/AppLayout';
 import useAppSession from '../../hooks/useAppSession';
 
@@ -70,6 +71,16 @@ export default function BillingIndex() {
     const [isSettingDefault, setIsSettingDefault] = useState(null);
     const [isRemovingPaymentMethod, setIsRemovingPaymentMethod] = useState(null);
     const [historyMonths, setHistoryMonths] = useState(6);
+    const [showStepUpModal, setShowStepUpModal] = useState(false);
+    const [stepUpModalError, setStepUpModalError] = useState('');
+    const [isStepUpSubmitting, setIsStepUpSubmitting] = useState(false);
+    const [pendingStepUpAction, setPendingStepUpAction] = useState(null);
+
+    const openStepUpModal = (action, message = 'MFA step-up is required for this action.') => {
+        setPendingStepUpAction(() => action);
+        setStepUpModalError(message);
+        setShowStepUpModal(true);
+    };
 
     const loadBilling = async () => {
         setIsPageLoading(true);
@@ -151,19 +162,29 @@ export default function BillingIndex() {
             return;
         }
 
-        try {
+        const runSubscribe = async (stepUpPayload = {}) => {
             const response = await window.axios.post('/api/v1/billing/subscribe', {
                 plan_code: planCode,
                 payment_method: paymentMethod || null,
+                ...stepUpPayload,
             });
 
             setMessage(response?.data?.message || 'Subscription created.');
             await loadBilling();
+        };
+
+        try {
+            await runSubscribe();
         } catch (requestError) {
             const status = requestError?.response?.status;
             if (status === 402) {
                 setPendingPaymentId(String(requestError?.response?.data?.payment_id ?? ''));
             }
+            if (requestError?.response?.data?.step_up_required) {
+                openStepUpModal(runSubscribe, requestError?.response?.data?.message);
+                return;
+            }
+
             setError(requestError?.response?.data?.message || 'Unable to subscribe.');
         }
     };
@@ -177,14 +198,24 @@ export default function BillingIndex() {
             return;
         }
 
-        try {
+        const runSwap = async (stepUpPayload = {}) => {
             const response = await window.axios.patch('/api/v1/billing/subscription', {
                 plan_code: planCode,
+                ...stepUpPayload,
             });
 
             setMessage(response?.data?.message || 'Subscription swapped.');
             await loadBilling();
+        };
+
+        try {
+            await runSwap();
         } catch (requestError) {
+            if (requestError?.response?.data?.step_up_required) {
+                openStepUpModal(runSwap, requestError?.response?.data?.message);
+                return;
+            }
+
             setError(requestError?.response?.data?.message || 'Unable to swap subscription.');
         }
     };
@@ -200,12 +231,24 @@ export default function BillingIndex() {
         setMessage('');
         setError('');
 
-        try {
-            const response = await window.axios.delete('/api/v1/billing/subscription');
+        const runCancel = async (stepUpPayload = {}) => {
+            const response = await window.axios.delete('/api/v1/billing/subscription', {
+                data: stepUpPayload,
+            });
+
             setMessage(response?.data?.message || 'Subscription cancellation scheduled.');
             await loadBilling();
             setShowCancelModal(false);
+        };
+
+        try {
+            await runCancel();
         } catch (requestError) {
+            if (requestError?.response?.data?.step_up_required) {
+                openStepUpModal(runCancel, requestError?.response?.data?.message);
+                return;
+            }
+
             setError(requestError?.response?.data?.message || 'Unable to cancel subscription.');
         } finally {
             setIsCancellingSubscription(false);
@@ -222,17 +265,27 @@ export default function BillingIndex() {
             return;
         }
 
-        setIsAddingPaymentMethod(true);
-
-        try {
+        const runAddPaymentMethod = async (stepUpPayload = {}) => {
             await window.axios.post('/api/v1/billing/payment-methods', {
                 payment_method: newPaymentMethodId,
+                ...stepUpPayload,
             });
 
             setNewPaymentMethodId('');
             setMessage('Payment method added.');
             await loadBilling();
+        };
+
+        setIsAddingPaymentMethod(true);
+
+        try {
+            await runAddPaymentMethod();
         } catch (requestError) {
+            if (requestError?.response?.data?.step_up_required) {
+                openStepUpModal(runAddPaymentMethod, requestError?.response?.data?.message);
+                return;
+            }
+
             setError(requestError?.response?.data?.message || 'Unable to add payment method.');
         } finally {
             setIsAddingPaymentMethod(false);
@@ -244,14 +297,24 @@ export default function BillingIndex() {
         setError('');
         setIsSettingDefault(pmId);
 
-        try {
+        const runSetDefault = async (stepUpPayload = {}) => {
             await window.axios.patch('/api/v1/billing/payment-methods/default', {
                 payment_method: pmId,
+                ...stepUpPayload,
             });
 
             setMessage('Default payment method updated.');
             await loadBilling();
+        };
+
+        try {
+            await runSetDefault();
         } catch (requestError) {
+            if (requestError?.response?.data?.step_up_required) {
+                openStepUpModal(runSetDefault, requestError?.response?.data?.message);
+                return;
+            }
+
             setError(requestError?.response?.data?.message || 'Unable to update default payment method.');
         } finally {
             setIsSettingDefault(null);
@@ -263,15 +326,64 @@ export default function BillingIndex() {
         setError('');
         setIsRemovingPaymentMethod(pmId);
 
-        try {
-            await window.axios.delete(`/api/v1/billing/payment-methods/${pmId}`);
+        const runRemovePaymentMethod = async (stepUpPayload = {}) => {
+            await window.axios.delete(`/api/v1/billing/payment-methods/${pmId}`, {
+                data: stepUpPayload,
+            });
+
             setPaymentMethods((current) => current.filter((pm) => pm.id !== pmId));
             setMessage('Payment method removed.');
+        };
+
+        try {
+            await runRemovePaymentMethod();
         } catch (requestError) {
+            if (requestError?.response?.data?.step_up_required) {
+                openStepUpModal(runRemovePaymentMethod, requestError?.response?.data?.message);
+                return;
+            }
+
             setError(requestError?.response?.data?.message || 'Unable to remove payment method.');
         } finally {
             setIsRemovingPaymentMethod(null);
         }
+    };
+
+    const handleStepUpConfirm = async (credentials) => {
+        if (!pendingStepUpAction) {
+            setShowStepUpModal(false);
+            return;
+        }
+
+        setIsStepUpSubmitting(true);
+
+        try {
+            await pendingStepUpAction(credentials);
+            setPendingStepUpAction(null);
+            setShowStepUpModal(false);
+            setStepUpModalError('');
+        } catch (requestError) {
+            if (requestError?.response?.data?.step_up_required) {
+                setStepUpModalError(requestError?.response?.data?.message || 'Invalid MFA credentials.');
+                return;
+            }
+
+            setShowStepUpModal(false);
+            setPendingStepUpAction(null);
+            setError(requestError?.response?.data?.message || 'Unable to complete secure action.');
+        } finally {
+            setIsStepUpSubmitting(false);
+        }
+    };
+
+    const handleStepUpCancel = () => {
+        if (isStepUpSubmitting) {
+            return;
+        }
+
+        setShowStepUpModal(false);
+        setPendingStepUpAction(null);
+        setStepUpModalError('');
     };
 
     if (isLoading) {
@@ -849,6 +961,16 @@ export default function BillingIndex() {
                 onCancel={() => setShowCancelModal(false)}
                 onConfirm={handleCancel}
                 isProcessing={isCancellingSubscription}
+            />
+
+            <StepUpModal
+                open={showStepUpModal}
+                title="Verify Billing Action"
+                description="For billing changes, confirm with your authenticator code or recovery code."
+                error={stepUpModalError}
+                isProcessing={isStepUpSubmitting}
+                onConfirm={handleStepUpConfirm}
+                onCancel={handleStepUpCancel}
             />
         </AppLayout>
     );

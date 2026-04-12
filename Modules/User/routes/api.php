@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\Api\V1\AdminController;
 use Modules\User\Http\Controllers\Api\V1\ApiTokenController;
+use Modules\User\Http\Controllers\Api\V1\MfaController;
 use Modules\User\Http\Controllers\Api\V1\NotificationController;
 use Modules\User\Http\Controllers\Api\V1\ProfileController;
 use Modules\User\Http\Controllers\Api\V1\SessionBootstrapController;
@@ -18,6 +19,9 @@ Route::middleware(['api'])->prefix('v1')->group(function () {
         Route::get('session/bootstrap', SessionBootstrapController::class)->name('api.session.bootstrap');
         Route::get('me', [UserController::class, 'me']);
         Route::post('logout', [UserController::class, 'logout']);
+        Route::post('auth/mfa/setup', [MfaController::class, 'setup'])->name('api.auth.mfa.setup');
+        Route::post('auth/mfa/enable', [MfaController::class, 'enable'])->name('api.auth.mfa.enable');
+        Route::post('auth/mfa/disable', [MfaController::class, 'disable'])->name('api.auth.mfa.disable');
         Route::get('tokens', [ApiTokenController::class, 'index'])->name('api.token.index');
         Route::post('tokens', [ApiTokenController::class, 'store'])->name('api.token.store');
         Route::delete('tokens/{tokenId}', [ApiTokenController::class, 'destroy'])->name('api.token.destroy');
@@ -38,6 +42,6 @@ Route::middleware(['api'])->prefix('v1')->group(function () {
 
         // Super admin
         Route::get('admin/dashboard', [AdminController::class, 'dashboard'])->name('api.admin.dashboard');
-        Route::post('admin/impersonate/{user}', [AdminController::class, 'impersonate'])->name('api.admin.impersonate');
+        Route::post('admin/impersonate/{user}', [AdminController::class, 'impersonate'])->middleware('mfa.stepup')->name('api.admin.impersonate');
     });
 });

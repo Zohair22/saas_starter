@@ -10,6 +10,7 @@ use Modules\User\Http\Requests\LoginUserRequest;
 use Modules\User\Http\Requests\RegisterUserRequest;
 use Modules\User\Interfaces\Contracts\UserServiceInterface;
 use Modules\User\Models\User;
+use Modules\User\Services\MfaService;
 use Modules\User\Transformers\UserResource;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -17,6 +18,7 @@ class UserController extends Controller
 {
     public function __construct(
         private readonly UserServiceInterface $userService,
+        private readonly MfaService $mfaService,
     ) {}
 
     /**
@@ -44,6 +46,25 @@ class UserController extends Controller
             return response()->json([
                 'message' => 'Invalid credentials',
             ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if ($user->mfa_enabled) {
+            $mfaCode = $request->validated('mfa_code');
+            $recoveryCode = $request->validated('mfa_recovery_code');
+
+            if ($mfaCode === null && $recoveryCode === null) {
+                return response()->json([
+                    'message' => 'MFA code is required.',
+                    'mfa_required' => true,
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if (! $this->mfaService->challengePassed($user, $mfaCode, $recoveryCode)) {
+                return response()->json([
+                    'message' => 'Invalid MFA credentials.',
+                    'mfa_required' => true,
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
         }
 
         $token = $user->createToken('auth')->plainTextToken;

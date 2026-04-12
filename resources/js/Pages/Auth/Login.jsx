@@ -6,6 +6,9 @@ import { completeAuthentication } from '../../session';
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [mfaCode, setMfaCode] = useState('');
+    const [mfaRecoveryCode, setMfaRecoveryCode] = useState('');
+    const [mfaRequired, setMfaRequired] = useState(false);
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -15,7 +18,20 @@ export default function Login() {
         setIsSubmitting(true);
 
         try {
-            const response = await window.axios.post('/api/v1/login', { email, password });
+            const payload = {
+                email,
+                password,
+            };
+
+            if (mfaCode.trim() !== '') {
+                payload.mfa_code = mfaCode.trim();
+            }
+
+            if (mfaRecoveryCode.trim() !== '') {
+                payload.mfa_recovery_code = mfaRecoveryCode.trim();
+            }
+
+            const response = await window.axios.post('/api/v1/login', payload);
             const token = response?.data?.token;
 
             if (!token) {
@@ -23,8 +39,11 @@ export default function Login() {
                 return;
             }
 
+            setMfaRequired(false);
             await completeAuthentication({ token });
         } catch (error) {
+            const nextMfaRequired = Boolean(error?.response?.data?.mfa_required);
+            setMfaRequired(nextMfaRequired);
             setMessage(error?.response?.data?.message || 'Login failed.');
         } finally {
             setIsSubmitting(false);
@@ -59,6 +78,32 @@ export default function Login() {
                             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
                         />
                     </label>
+
+                    {mfaRequired ? (
+                        <>
+                            <label className="block">
+                                <span className="mb-1 block text-sm font-medium text-slate-700">Authenticator code</span>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    value={mfaCode}
+                                    onChange={(event) => setMfaCode(event.target.value)}
+                                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
+                                />
+                            </label>
+
+                            <label className="block">
+                                <span className="mb-1 block text-sm font-medium text-slate-700">Recovery code (optional)</span>
+                                <input
+                                    type="text"
+                                    value={mfaRecoveryCode}
+                                    onChange={(event) => setMfaRecoveryCode(event.target.value)}
+                                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
+                                />
+                            </label>
+                        </>
+                    ) : null}
 
                     <InlineNotice message={message} />
 

@@ -14,6 +14,8 @@ class LoginUserRequest extends FormRequest
         return [
             'email' => ['required', 'email'],
             'password' => ['required', 'string', 'min:8'],
+            'mfa_code' => ['nullable', 'string', 'size:6'],
+            'mfa_recovery_code' => ['nullable', 'string', 'max:64'],
         ];
     }
 
