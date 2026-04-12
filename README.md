@@ -6,6 +6,18 @@ Production-grade modular multi-tenant SaaS backend built with Laravel 13 and nWi
 
 A complete tenant-first SaaS engine covering identity, billing, domain logic, compliance, and developer platform features — all wired through an event-driven, service-layered architecture.
 
+## Documentation
+
+Project documentation is now organized in the `docs` directory:
+
+- [Documentation Home](docs/README.md)
+- [Getting Started](docs/getting-started.md)
+- [How to Use the App](docs/how-to-use-app.md)
+- [Role-Based Walkthrough](docs/role-based-walkthrough.md)
+- [Development Workflow](docs/development-workflow.md)
+- [API Overview](docs/api-overview.md)
+- [Architecture Notes](docs/architecture.md)
+
 ## Project Brief
 
 SaaS Starter is a backend foundation for building multi-tenant SaaS products where each customer account (tenant) has isolated data, controlled member access, subscription billing, and usage limits.
