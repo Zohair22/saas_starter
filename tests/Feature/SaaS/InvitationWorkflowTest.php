@@ -15,6 +15,53 @@ class InvitationWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_admin_can_list_active_invitations(): void
+    {
+        [$admin, $tenant] = $this->createTenantActor(MembershipRole::Admin->value);
+
+        Invitation::query()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'active@example.com',
+            'role' => MembershipRole::Member->value,
+            'token' => str_repeat('c', 64),
+            'invited_by' => $admin->id,
+            'expires_at' => now()->addDays(2),
+        ]);
+
+        Invitation::query()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'accepted@example.com',
+            'role' => MembershipRole::Member->value,
+            'token' => str_repeat('d', 64),
+            'invited_by' => $admin->id,
+            'expires_at' => now()->addDays(2),
+            'accepted_at' => now(),
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $response = $this
+            ->withHeader('X-Tenant-ID', (string) $tenant->id)
+            ->getJson('/api/v1/invitations');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.email', 'active@example.com');
+    }
+
+    public function test_member_cannot_list_invitations(): void
+    {
+        [$member, $tenant] = $this->createTenantActor(MembershipRole::Member->value);
+
+        Sanctum::actingAs($member);
+
+        $response = $this
+            ->withHeader('X-Tenant-ID', (string) $tenant->id)
+            ->getJson('/api/v1/invitations');
+
+        $response->assertForbidden();
+    }
+
     public function test_admin_can_create_invitation(): void
     {
         [$admin, $tenant] = $this->createTenantActor(MembershipRole::Admin->value);

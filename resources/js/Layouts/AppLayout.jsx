@@ -11,6 +11,7 @@ export default function AppLayout({ title, children, session = {} }) {
         { label: 'Billing', href: '/app/billing' },
         { label: 'Members', href: '/app/memberships' },
         { label: 'Logs', href: '/app/logs' },
+        { label: 'Analytics', href: '/app/analytics' },
     ];
 
     const isActive = (href) => {

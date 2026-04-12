@@ -2,6 +2,7 @@
 
 namespace Modules\Membership\Services;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -22,6 +23,11 @@ class InvitationService implements InvitationServiceInterface
         private readonly InvitationRepositoryInterface $invitationRepository,
         private readonly UsageCounterServiceInterface $usageCounterService,
     ) {}
+
+    public function listActiveForTenant(int $tenantId): Collection
+    {
+        return $this->invitationRepository->listActiveForTenant($tenantId);
+    }
 
     public function create(CreateInvitationData $data): Invitation
     {

@@ -20,7 +20,13 @@ class UsageDashboardController extends Controller
     {
         /** @var Tenants $tenant */
         $tenant = request()->attributes->get('tenant');
-        $this->authorize('manageSubscription', $tenant);
+        $this->authorize('viewPlans', $tenant);
+
+        $validated = request()->validate([
+            'months' => ['nullable', 'integer', 'min:1', 'max:12'],
+        ]);
+
+        $historyMonths = (int) ($validated['months'] ?? 6);
 
         $this->usageCounterService->syncTenantUsage($tenant->id);
 
@@ -37,8 +43,9 @@ class UsageDashboardController extends Controller
         ];
 
         $history = TenantUsageCounter::query()
+            ->where('tenant_id', $tenant->id)
             ->latest('period_start')
-            ->limit(6)
+            ->limit($historyMonths)
             ->get()
             ->map(fn (TenantUsageCounter $counter) => [
                 'period_start' => $counter->period_start,
@@ -60,6 +67,7 @@ class UsageDashboardController extends Controller
                 'max_projects' => $this->utilization($usage['max_projects'], $limits['max_projects']),
                 'api_rate_limit' => $this->utilization($usage['api_rate_limit'], $limits['api_rate_limit']),
             ],
+            'history_months' => $historyMonths,
             'history' => $history,
         ]);
     }

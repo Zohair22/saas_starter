@@ -51,24 +51,51 @@ export default function BillingIndex() {
     const [pendingPaymentId, setPendingPaymentId] = useState('');
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [isCancellingSubscription, setIsCancellingSubscription] = useState(false);
+    const [historyMonths, setHistoryMonths] = useState(6);
 
     const loadBilling = async () => {
         setIsPageLoading(true);
         setError('');
 
         try {
-            const [plansResponse, usageResponse] = await Promise.all([
+            const [plansResponse, usageResponse] = await Promise.allSettled([
                 window.axios.get('/api/v1/billing/plans'),
-                window.axios.get('/api/v1/billing/usage'),
+                window.axios.get('/api/v1/billing/usage', {
+                    params: {
+                        months: historyMonths,
+                    },
+                }),
             ]);
 
-            const fetchedPlans = plansResponse?.data?.plans?.data ?? [];
-            setPlans(fetchedPlans);
-            setSubscription(plansResponse?.data?.subscription ?? null);
-            setUsage(usageResponse?.data ?? null);
+            if (plansResponse.status === 'fulfilled') {
+                const rawPlans = plansResponse.value?.data?.plans;
+                const fetchedPlans = Array.isArray(rawPlans)
+                    ? rawPlans
+                    : Array.isArray(rawPlans?.data)
+                        ? rawPlans.data
+                        : [];
 
-            if (!planCode && fetchedPlans.length > 0) {
-                setPlanCode(fetchedPlans[0].code);
+                setPlans(fetchedPlans);
+                setSubscription(plansResponse.value?.data?.subscription ?? null);
+
+                if (fetchedPlans.length > 0) {
+                    const selectedExists = fetchedPlans.some((plan) => plan.code === planCode);
+
+                    if (!selectedExists) {
+                        setPlanCode(fetchedPlans[0].code);
+                    }
+                }
+            } else {
+                setPlans([]);
+                setSubscription(null);
+                setError(plansResponse.reason?.response?.data?.message || 'Unable to load plans.');
+            }
+
+            if (usageResponse.status === 'fulfilled') {
+                setUsage(usageResponse.value?.data ?? null);
+            } else {
+                setUsage(null);
+                setError((currentError) => currentError || usageResponse.reason?.response?.data?.message || 'Unable to load usage data.');
             }
         } catch (requestError) {
             setError(requestError?.response?.data?.message || 'Unable to load billing data.');
@@ -81,7 +108,7 @@ export default function BillingIndex() {
         if (!isLoading) {
             loadBilling();
         }
-    }, [isLoading]);
+    }, [isLoading, historyMonths]);
 
     const handleSubscribe = async (event) => {
         event.preventDefault();
@@ -329,8 +356,24 @@ export default function BillingIndex() {
                     </section>
 
                     <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <h2 className="text-base font-semibold text-slate-900">Usage History</h2>
-                        <p className="mt-1 text-sm text-slate-600">Historical snapshots of key usage dimensions used for plan governance.</p>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="text-base font-semibold text-slate-900">Usage History</h2>
+                                <p className="mt-1 text-sm text-slate-600">Historical snapshots of key usage dimensions used for plan governance.</p>
+                            </div>
+                            <label className="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                                Window
+                                <select
+                                    value={historyMonths}
+                                    onChange={(event) => setHistoryMonths(Number(event.target.value))}
+                                    className="rounded-md border border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-700"
+                                >
+                                    <option value={3}>Last 3 months</option>
+                                    <option value={6}>Last 6 months</option>
+                                    <option value={12}>Last 12 months</option>
+                                </select>
+                            </label>
+                        </div>
 
                 <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
                     <table className="min-w-full divide-y divide-slate-200 text-sm">

@@ -26,7 +26,16 @@ class TaskController extends Controller
         $this->ensureProjectInTenant($project);
         $this->authorize('viewAny', [Task::class, $project]);
 
-        $tasks = $this->taskService->listForProject($project->id);
+        $validated = request()->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', 'in:open,in_progress,done'],
+            'priority' => ['nullable', 'in:low,medium,high'],
+            'sort' => ['nullable', 'in:updated_desc,updated_asc,due_asc,due_desc'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $tasks = $this->taskService->listForProject($project->id, $validated);
 
         return TaskResource::collection($tasks);
     }

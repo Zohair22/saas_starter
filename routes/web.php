@@ -1,11 +1,21 @@
 <?php
 
+use App\Http\Controllers\LandingEventController;
+use App\Http\Controllers\LandingEventReportController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::post('/track/landing-event', LandingEventController::class)
+    ->middleware('throttle:120,1')
+    ->name('landing.track');
+
+Route::get('/track/landing-report', LandingEventReportController::class)
+    ->middleware('auth')
+    ->name('landing.report');
 
 Route::get('/login', function () {
     return Inertia::render('Auth/Login');
@@ -62,6 +72,10 @@ Route::get('/app/memberships', function () {
 Route::get('/app/logs', function () {
     return Inertia::render('Logs/Index');
 })->name('app.logs.index');
+
+Route::get('/app/analytics', function () {
+    return Inertia::render('Analytics/Index');
+})->name('app.analytics.index');
 
 Route::get('/app/audit-logs', function () {
     return redirect('/app/logs?tab=audit');

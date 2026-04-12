@@ -19,19 +19,61 @@ export default function TasksIndex({ projectId }) {
     const [message, setMessage] = useState('');
     const [taskToDelete, setTaskToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [priorityFilter, setPriorityFilter] = useState('');
+    const [sortBy, setSortBy] = useState('updated_desc');
+    const [pagination, setPagination] = useState({
+        currentPage: 1,
+        lastPage: 1,
+        perPage: 10,
+        total: 0,
+    });
+
+    const fetchTasks = useCallback(async (page = 1, overrides = {}) => {
+        const q = overrides.q ?? '';
+        const status = overrides.status ?? '';
+        const priority = overrides.priority ?? '';
+        const sort = overrides.sort ?? 'updated_desc';
+        const perPage = overrides.perPage ?? pagination.perPage;
+
+        const response = await window.axios.get(`/api/v1/projects/${projectId}/tasks`, {
+            params: {
+                q: q || undefined,
+                status: status || undefined,
+                priority: priority || undefined,
+                sort,
+                per_page: perPage,
+                page,
+            },
+        });
+
+        setTasks(response?.data?.data ?? []);
+        setPagination((current) => ({
+            ...current,
+            currentPage: response?.data?.meta?.current_page ?? page,
+            lastPage: response?.data?.meta?.last_page ?? 1,
+            perPage: Number(response?.data?.meta?.per_page ?? current.perPage),
+            total: Number(response?.data?.meta?.total ?? 0),
+        }));
+    }, [projectId, pagination.perPage]);
 
     useEffect(() => {
         const fetchData = async () => {
             setIsPageLoading(true);
 
             try {
-                const [projectResponse, tasksResponse] = await Promise.all([
+                const [projectResponse] = await Promise.all([
                     window.axios.get(`/api/v1/projects/${projectId}`),
-                    window.axios.get(`/api/v1/projects/${projectId}/tasks`),
                 ]);
 
                 setProject(projectResponse?.data?.data ?? null);
-                setTasks(tasksResponse?.data?.data ?? []);
+                await fetchTasks(1, {
+                    q: searchQuery,
+                    status: statusFilter,
+                    priority: priorityFilter,
+                    sort: sortBy,
+                });
             } catch (error) {
                 const errorMessage = error?.response?.data?.message || 'Unable to load tasks.';
                 setMessage(errorMessage);
@@ -43,7 +85,7 @@ export default function TasksIndex({ projectId }) {
         if (!isLoading) {
             fetchData();
         }
-    }, [isLoading, projectId]);
+    }, [isLoading, projectId, fetchTasks]);
 
     const handleTaskUpdate = useCallback((updatedTask) => {
         setTasks((current) =>
@@ -57,16 +99,15 @@ export default function TasksIndex({ projectId }) {
         tenantId: !isLoading ? tenantId : null,
         projectId: !isLoading ? projectId : null,
         onTaskCreated: useCallback((event) => {
-            setTasks((current) => {
-                if (current.some((task) => task.id === event.task.id)) {
-                    return current;
-                }
-
-                return [event.task, ...current];
-            });
-        }, []),
-        onTaskUpdated: useCallback((event) => handleTaskUpdate(event.task), [handleTaskUpdate]),
-        onTaskCompleted: useCallback((event) => handleTaskUpdate(event.task), [handleTaskUpdate]),
+            void event;
+            fetchTasks(pagination.currentPage);
+        }, [fetchTasks, pagination.currentPage]),
+        onTaskUpdated: useCallback((event) => {
+            handleTaskUpdate(event.task);
+        }, [handleTaskUpdate]),
+        onTaskCompleted: useCallback((event) => {
+            handleTaskUpdate(event.task);
+        }, [handleTaskUpdate]),
     });
 
     const handleDelete = async (taskId) => {
@@ -74,7 +115,12 @@ export default function TasksIndex({ projectId }) {
 
         try {
             await window.axios.delete(`/api/v1/projects/${projectId}/tasks/${taskId}`);
-            setTasks((current) => current.filter((task) => task.id !== taskId));
+            await fetchTasks(pagination.currentPage, {
+                q: searchQuery,
+                status: statusFilter,
+                priority: priorityFilter,
+                sort: sortBy,
+            });
             toast.success('Task deleted.');
             setTaskToDelete(null);
         } catch (error) {
@@ -115,6 +161,95 @@ export default function TasksIndex({ projectId }) {
             </div>
 
             <InlineNotice message={message} className="mb-4" />
+
+            <div className="mb-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-5">
+                <label className="lg:col-span-2">
+                    <span className="mb-1 block text-xs font-semibold tracking-wide text-slate-500 uppercase">Search</span>
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder="Search title or description"
+                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
+                    />
+                </label>
+
+                <label>
+                    <span className="mb-1 block text-xs font-semibold tracking-wide text-slate-500 uppercase">Status</span>
+                    <select
+                        value={statusFilter}
+                        onChange={(event) => setStatusFilter(event.target.value)}
+                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
+                    >
+                        <option value="">All</option>
+                        <option value="open">Open</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="done">Done</option>
+                    </select>
+                </label>
+
+                <label>
+                    <span className="mb-1 block text-xs font-semibold tracking-wide text-slate-500 uppercase">Priority</span>
+                    <select
+                        value={priorityFilter}
+                        onChange={(event) => setPriorityFilter(event.target.value)}
+                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
+                    >
+                        <option value="">All</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </label>
+
+                <label>
+                    <span className="mb-1 block text-xs font-semibold tracking-wide text-slate-500 uppercase">Sort</span>
+                    <select
+                        value={sortBy}
+                        onChange={(event) => setSortBy(event.target.value)}
+                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
+                    >
+                        <option value="updated_desc">Recently updated</option>
+                        <option value="updated_asc">Oldest updated</option>
+                        <option value="due_asc">Due date earliest</option>
+                        <option value="due_desc">Due date latest</option>
+                    </select>
+                </label>
+            </div>
+
+            <div className="mb-4 flex items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => fetchTasks(1, {
+                        q: searchQuery,
+                        status: statusFilter,
+                        priority: priorityFilter,
+                        sort: sortBy,
+                    })}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                    Apply filters
+                </button>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setSearchQuery('');
+                        setStatusFilter('');
+                        setPriorityFilter('');
+                        setSortBy('updated_desc');
+                        fetchTasks(1, {
+                            q: '',
+                            status: '',
+                            priority: '',
+                            sort: 'updated_desc',
+                        });
+                    }}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                    Reset
+                </button>
+                <span className="text-xs text-slate-500">Showing {tasks.length} of {pagination.total} tasks</span>
+            </div>
 
             {isPageLoading ? (
                 <TableSkeleton rows={6} />
@@ -179,6 +314,36 @@ export default function TasksIndex({ projectId }) {
                 </table>
                 </div>
             )}
+
+            <div className="mt-4 flex items-center justify-between">
+                <button
+                    type="button"
+                    disabled={pagination.currentPage <= 1 || isPageLoading}
+                    onClick={() => fetchTasks(pagination.currentPage - 1, {
+                        q: searchQuery,
+                        status: statusFilter,
+                        priority: priorityFilter,
+                        sort: sortBy,
+                    })}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    Previous
+                </button>
+                <p className="text-xs text-slate-500">Page {pagination.currentPage} of {pagination.lastPage}</p>
+                <button
+                    type="button"
+                    disabled={pagination.currentPage >= pagination.lastPage || isPageLoading}
+                    onClick={() => fetchTasks(pagination.currentPage + 1, {
+                        q: searchQuery,
+                        status: statusFilter,
+                        priority: priorityFilter,
+                        sort: sortBy,
+                    })}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    Next
+                </button>
+            </div>
 
             <ConfirmDialog
                 open={taskToDelete !== null}

@@ -34,9 +34,10 @@ class TaskServiceTest extends TestCase
     public function test_list_for_project_delegates_to_repository(): void
     {
         $collection = new Collection;
-        $this->repository->shouldReceive('listForProject')->with(42)->andReturn($collection);
+        $filters = ['status' => 'open', 'sort' => 'updated_desc', 'per_page' => 10, 'page' => 1];
+        $this->repository->shouldReceive('listForProject')->with(42, $filters)->andReturn($collection);
 
-        $result = $this->service->listForProject(42);
+        $result = $this->service->listForProject(42, $filters);
 
         $this->assertSame($collection, $result);
     }

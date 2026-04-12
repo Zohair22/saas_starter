@@ -12,6 +12,26 @@ export default function ProjectsShow({ id }) {
     const [project, setProject] = useState(null);
     const [message, setMessage] = useState('');
 
+    const formatDateTime = (value) => {
+        if (!value) {
+            return '-';
+        }
+
+        const parsed = new Date(value);
+
+        if (Number.isNaN(parsed.getTime())) {
+            return '-';
+        }
+
+        return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        }).format(parsed);
+    };
+
     useEffect(() => {
         const fetchProject = async () => {
             setIsPageLoading(true);
@@ -84,7 +104,7 @@ export default function ProjectsShow({ id }) {
                             </div>
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                                 <dt className="text-xs uppercase tracking-wide text-slate-500">Last Updated</dt>
-                                <dd className="mt-1 text-sm font-semibold text-slate-900">{project.updated_at ?? '-'}</dd>
+                                <dd className="mt-1 text-sm font-semibold text-slate-900">{formatDateTime(project.updated_at)}</dd>
                             </div>
                         </dl>
                     </article>

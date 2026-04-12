@@ -2,6 +2,7 @@
 
 namespace Modules\Task\Services;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Modules\Task\Classes\DTOs\CreateTaskData;
 use Modules\Task\Classes\DTOs\UpdateTaskData;
@@ -20,9 +21,9 @@ class TaskService implements TaskServiceInterface
         private readonly TaskRepositoryInterface $taskRepository,
     ) {}
 
-    public function listForProject(int $projectId): Collection
+    public function listForProject(int $projectId, array $filters = []): Collection|LengthAwarePaginator
     {
-        return $this->taskRepository->listForProject($projectId);
+        return $this->taskRepository->listForProject($projectId, $filters);
     }
 
     public function create(CreateTaskData $data, User $actor): Task

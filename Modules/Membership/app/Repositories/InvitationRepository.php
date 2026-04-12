@@ -2,6 +2,7 @@
 
 namespace Modules\Membership\Repositories;
 
+use Illuminate\Database\Eloquent\Collection;
 use Modules\Membership\Classes\DTOs\CreateInvitationData;
 use Modules\Membership\Interfaces\Contracts\InvitationRepositoryInterface;
 use Modules\Membership\Models\Invitation;
@@ -10,6 +11,17 @@ use Modules\User\Models\User;
 
 class InvitationRepository implements InvitationRepositoryInterface
 {
+    public function listActiveForTenant(int $tenantId): Collection
+    {
+        return Invitation::query()
+            ->where('tenant_id', $tenantId)
+            ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->get();
+    }
+
     public function findActiveByTenantAndEmail(int $tenantId, string $email): ?Invitation
     {
         return Invitation::query()

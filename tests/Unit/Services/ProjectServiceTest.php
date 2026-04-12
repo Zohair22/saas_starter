@@ -32,9 +32,10 @@ class ProjectServiceTest extends TestCase
     public function test_list_for_tenant_delegates_to_repository(): void
     {
         $collection = new Collection;
-        $this->repository->shouldReceive('listForTenant')->with(5)->andReturn($collection);
+        $filters = ['q' => 'alpha', 'sort' => 'name_asc', 'per_page' => 20, 'page' => 2];
+        $this->repository->shouldReceive('listForTenant')->with(5, $filters)->andReturn($collection);
 
-        $result = $this->service->listForTenant(5);
+        $result = $this->service->listForTenant(5, $filters);
 
         $this->assertSame($collection, $result);
     }

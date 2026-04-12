@@ -18,6 +18,60 @@ class TaskTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_list_supports_filters_and_sorting(): void
+    {
+        [$tenant, $user] = $this->createTenantWithMember(MembershipRole::Member);
+        $project = Project::factory()->create(['tenant_id' => $tenant->id, 'created_by' => $user->id]);
+
+        Task::factory()->create([
+            'tenant_id' => $tenant->id,
+            'project_id' => $project->id,
+            'created_by' => $user->id,
+            'title' => 'Fix API bug',
+            'status' => TaskStatus::InProgress,
+            'priority' => TaskPriority::High,
+        ]);
+
+        Task::factory()->create([
+            'tenant_id' => $tenant->id,
+            'project_id' => $project->id,
+            'created_by' => $user->id,
+            'title' => 'Write docs',
+            'status' => TaskStatus::Open,
+            'priority' => TaskPriority::Low,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->getJson("/api/v1/projects/{$project->id}/tasks?q=api&status=in_progress&priority=high&sort=updated_desc");
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.title', 'Fix API bug');
+    }
+
+    public function test_list_supports_pagination_meta(): void
+    {
+        [$tenant, $user] = $this->createTenantWithMember(MembershipRole::Member);
+        $project = Project::factory()->create(['tenant_id' => $tenant->id, 'created_by' => $user->id]);
+
+        Task::factory()->count(3)->create([
+            'tenant_id' => $tenant->id,
+            'project_id' => $project->id,
+            'created_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->getJson("/api/v1/projects/{$project->id}/tasks?per_page=2&page=1");
+
+        $response->assertOk();
+        $response->assertJsonCount(2, 'data');
+        $response->assertJsonPath('meta.current_page', 1);
+        $response->assertJsonPath('meta.per_page', 2);
+        $response->assertJsonPath('meta.total', 3);
+    }
+
     public function test_member_can_list_tasks_for_project(): void
     {
         [$tenant, $user] = $this->createTenantWithMember(MembershipRole::Member);
@@ -60,6 +114,23 @@ class TaskTest extends TestCase
             ->postJson("/api/v1/projects/{$project->id}/tasks", ['title' => 'Task']);
 
         $response->assertForbidden();
+    }
+
+    public function test_cannot_assign_task_to_user_outside_current_tenant(): void
+    {
+        [$tenant, $admin] = $this->createTenantWithMember(MembershipRole::Admin);
+        [, $externalUser] = $this->createTenantWithMember(MembershipRole::Member);
+        $project = Project::factory()->create(['tenant_id' => $tenant->id, 'created_by' => $admin->id]);
+
+        $response = $this->actingAs($admin)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->postJson("/api/v1/projects/{$project->id}/tasks", [
+                'title' => 'Restricted assignment',
+                'assigned_to' => $externalUser->id,
+            ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['assigned_to']);
     }
 
     public function test_updating_task_to_done_dispatches_task_completed(): void

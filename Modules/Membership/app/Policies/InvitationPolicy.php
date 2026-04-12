@@ -9,6 +9,11 @@ use Modules\User\Models\User;
 
 class InvitationPolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $this->canManageTenantMembers($user);
+    }
+
     public function create(User $user): bool
     {
         return $this->canManageTenantMembers($user);

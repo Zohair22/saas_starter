@@ -16,13 +16,40 @@ export default function ProjectsIndex() {
     const [message, setMessage] = useState('');
     const [projectToDelete, setProjectToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState('updated_desc');
+    const [pagination, setPagination] = useState({
+        currentPage: 1,
+        lastPage: 1,
+        perPage: 10,
+        total: 0,
+    });
 
-    const fetchProjects = async () => {
+    const fetchProjects = async (page = 1, overrides = {}) => {
         setIsPageLoading(true);
 
         try {
-            const response = await window.axios.get('/api/v1/projects');
+            const q = overrides.q ?? searchQuery;
+            const sort = overrides.sort ?? sortBy;
+            const perPage = overrides.perPage ?? pagination.perPage;
+
+            const response = await window.axios.get('/api/v1/projects', {
+                params: {
+                    q: q || undefined,
+                    sort,
+                    per_page: perPage,
+                    page,
+                },
+            });
+
             setProjects(response?.data?.data ?? []);
+            setPagination((current) => ({
+                ...current,
+                currentPage: response?.data?.meta?.current_page ?? page,
+                lastPage: response?.data?.meta?.last_page ?? 1,
+                perPage: Number(response?.data?.meta?.per_page ?? current.perPage),
+                total: Number(response?.data?.meta?.total ?? 0),
+            }));
         } catch (error) {
             const errorMessage = error?.response?.data?.message || 'Unable to load projects.';
             setMessage(errorMessage);
@@ -36,7 +63,7 @@ export default function ProjectsIndex() {
 
         try {
             await window.axios.delete(`/api/v1/projects/${projectId}`);
-            setProjects((current) => current.filter((project) => project.id !== projectId));
+            await fetchProjects(pagination.currentPage);
             toast.success('Project deleted.');
             setProjectToDelete(null);
         } catch (error) {
@@ -49,9 +76,9 @@ export default function ProjectsIndex() {
 
     useEffect(() => {
         if (!isLoading) {
-            fetchProjects();
+            fetchProjects(1);
         }
-    }, [isLoading]);
+    }, [isLoading, sortBy, pagination.perPage]);
 
     if (isLoading) {
         return <div className="p-6 text-sm text-slate-600">Loading session...</div>;
@@ -92,6 +119,58 @@ export default function ProjectsIndex() {
 
                     <InlineNotice message={message} className="mb-4" />
 
+                    <div className="mb-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                        <label className="block">
+                            <span className="mb-1 block text-xs font-semibold tracking-wide text-slate-500 uppercase">Search projects</span>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                placeholder="Search by name or description"
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
+                            />
+                        </label>
+
+                        <label className="block">
+                            <span className="mb-1 block text-xs font-semibold tracking-wide text-slate-500 uppercase">Sort</span>
+                            <select
+                                value={sortBy}
+                                onChange={(event) => setSortBy(event.target.value)}
+                                className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-300 transition focus:border-slate-500 focus:ring"
+                            >
+                                <option value="updated_desc">Recently updated</option>
+                                <option value="updated_asc">Oldest updated</option>
+                                <option value="name_asc">Name A-Z</option>
+                                <option value="name_desc">Name Z-A</option>
+                            </select>
+                        </label>
+
+                        <div className="flex items-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => fetchProjects(1)}
+                                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                            >
+                                Apply
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setSortBy('updated_desc');
+                                    fetchProjects(1, { q: '', sort: 'updated_desc' });
+                                }}
+                                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mb-3 text-xs text-slate-500">
+                        Showing {projects.length} of {pagination.total} projects
+                    </div>
+
                     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <table className="min-w-full divide-y divide-slate-200 text-sm">
                             <thead className="bg-slate-50">
@@ -105,7 +184,7 @@ export default function ProjectsIndex() {
                                 {projects.map((project) => (
                                     <tr key={project.id}>
                                         <td className="px-4 py-3 font-medium text-slate-900">{project.name}</td>
-                                        <td className="px-4 py-3 text-slate-600">{project.description || '-'}</td>
+                                        <td className="px-4 py-3 text-slate-600">{project.description || 'No description provided.'}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex justify-end gap-2">
                                                 <Link
@@ -140,12 +219,36 @@ export default function ProjectsIndex() {
                                 {projects.length === 0 ? (
                                     <tr>
                                         <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
-                                            No projects yet. Create one to start grouping work.
+                                            {pagination.total === 0
+                                                ? 'No projects yet. Create one to start grouping work.'
+                                                : 'No projects match your current filters.'}
                                         </td>
                                     </tr>
                                 ) : null}
                             </tbody>
                         </table>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                        <button
+                            type="button"
+                            disabled={pagination.currentPage <= 1 || isPageLoading}
+                            onClick={() => fetchProjects(pagination.currentPage - 1)}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            Previous
+                        </button>
+                        <p className="text-xs text-slate-500">
+                            Page {pagination.currentPage} of {pagination.lastPage}
+                        </p>
+                        <button
+                            type="button"
+                            disabled={pagination.currentPage >= pagination.lastPage || isPageLoading}
+                            onClick={() => fetchProjects(pagination.currentPage + 1)}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            Next
+                        </button>
                     </div>
                 </>
             )}
