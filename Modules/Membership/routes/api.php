@@ -9,7 +9,8 @@ Route::prefix('v1')->group(function () {
     Route::post('invitations/{token}/accept', [InvitationController::class, 'accept'])->name('invitation.accept');
 });
 
-Route::middleware(['auth:sanctum', 'tenant', 'tenant.member', 'throttle:api', 'tenant.api.rate'])->prefix('v1')->group(function () {
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.member', 'tenant.lifecycle', 'throttle:api', 'tenant.api.rate'])->prefix('v1')->group(function () {
+    Route::get('invitations', [InvitationController::class, 'index'])->name('invitation.index');
     Route::get('memberships', [MembershipController::class, 'index'])->name('membership.index');
     Route::post('memberships', [MembershipController::class, 'store'])
         ->middleware('feature.limit:max_users')

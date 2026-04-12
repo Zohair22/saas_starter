@@ -4,6 +4,7 @@ namespace Modules\Membership\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Modules\Membership\Classes\DTOs\AcceptInvitationData;
 use Modules\Membership\Classes\DTOs\CreateInvitationData;
 use Modules\Membership\Http\Requests\AcceptInvitationRequest;
@@ -19,6 +20,16 @@ class InvitationController extends Controller
     public function __construct(
         private readonly InvitationServiceInterface $invitationService,
     ) {}
+
+    public function index(): AnonymousResourceCollection
+    {
+        $this->authorize('viewAny', Invitation::class);
+
+        $tenantId = (int) data_get(request()->attributes->get('tenant'), 'id');
+        $invitations = $this->invitationService->listActiveForTenant($tenantId);
+
+        return InvitationResource::collection($invitations);
+    }
 
     public function store(StoreInvitationRequest $request): JsonResponse
     {

@@ -6,6 +6,20 @@ Production-grade modular multi-tenant SaaS backend built with Laravel 13 and nWi
 
 A complete tenant-first SaaS engine covering identity, billing, domain logic, compliance, and developer platform features — all wired through an event-driven, service-layered architecture.
 
+## Project Brief
+
+SaaS Starter is a backend foundation for building multi-tenant SaaS products where each customer account (tenant) has isolated data, controlled member access, subscription billing, and usage limits.
+
+It is designed for teams that want to ship SaaS APIs faster without rebuilding core platform concerns like tenant isolation, role-based access, billing flows, audit/compliance trails, and token-based integrations.
+
+## What It Serves
+
+- Startups building B2B SaaS platforms with tenant-aware APIs
+- Product teams that need Stripe subscription lifecycle + webhook handling
+- Engineering teams requiring compliance-grade audit history and activity feeds
+- SaaS apps with plan-based limits (users/projects/features) and tenant-level throttling
+- Teams that prefer a modular monolith architecture with clear service boundaries
+
 ### Core SaaS Engine
 
 - Multi-tenant data isolation via global Eloquent scopes
@@ -26,6 +40,7 @@ A complete tenant-first SaaS engine covering identity, billing, domain logic, co
 - Audit logs — compliance-grade immutable trail across all sensitive actions
 - API token management — Sanctum personal access tokens with named abilities
 - Usage metering dashboard — real-time limits, utilization, and history per feature
+- Standardized API exception responses — consistent JSON error payloads and status codes
 
 ## Modules
 
@@ -140,15 +155,20 @@ Key files: `Modules/Tenant/app/Http/Middleware/IdentifyTenant.php`, `Modules/Ten
 ### Projects
 
 - Full CRUD, tenant-scoped via global scope
+- Server-side list filtering and sorting (`q`, `sort`)
+- Optional API pagination (`per_page`, `page`) with `meta` / `links`
 - Domain events: `ProjectCreated`, `ProjectUpdated`, `ProjectDeleted`
 - Policy guards all mutations by membership role
 
 ### Tasks
 
 - Nested under projects: `/api/v1/projects/{project}/tasks`
-- Status (`pending`, `in_progress`, `completed`) and priority (`low`, `medium`, `high`) enums
+- Status (`open`, `in_progress`, `done`) and priority (`low`, `medium`, `high`) enums
+- Server-side list filtering (`q`, `status`, `priority`) and sorting (`updated_*`, `due_*`)
+- Optional API pagination (`per_page`, `page`) with `meta` / `links`
 - Domain events: `TaskCreated`, `TaskUpdated`, `TaskCompleted`
 - Scoped route binding: task must belong to the resolved project
+- Assignee validation is tenant-safe (assignee must be a member of the current tenant)
 
 ### Activity Logs
 
@@ -171,7 +191,16 @@ Key files: `Modules/Tenant/app/Http/Middleware/IdentifyTenant.php`, `Modules/Ten
 ### Usage Metering Dashboard
 
 - `GET /api/v1/billing/usage` returns per-feature: limit, current usage, utilization %, and rolling history
+- Supports `months` query param (1-12) for history range control
+- Usage history is explicitly tenant-scoped and member-viewable (`viewPlans` policy)
 - Powered by `FeatureLimitService` + `UsageCounterService`
+
+### Landing Analytics
+
+- Welcome page CTA tracking endpoint: `POST /track/landing-event`
+- Authenticated report endpoint: `GET /track/landing-report?days=...`
+- In-app analytics page available at `/app/analytics`
+- Report includes totals, events by A/B variant, CTA leaderboard, and daily trend
 
 ## Stripe Webhook Event Flow
 
@@ -296,25 +325,37 @@ vendor/bin/pint --dirty --format agent
 | `POST`                 | `/api/v1/billing/subscribe`               | Subscribe tenant to plan                       |
 | `PATCH`                | `/api/v1/billing/subscription`            | Swap plan                                      |
 | `DELETE`               | `/api/v1/billing/subscription`            | Cancel subscription                            |
-| `GET`                  | `/api/v1/billing/usage`                   | Usage metering dashboard                       |
+| `GET`                  | `/api/v1/billing/usage`                   | Usage metering dashboard (`months` supported)  |
 | `GET`                  | `/api/v1/activity-logs`                   | Tenant activity feed                           |
 | `GET`                  | `/api/v1/audit-logs`                      | Compliance audit trail                         |
 
+### Web Tracking / Analytics
+
+| Method | Path                            | Description                              |
+| ------ | ------------------------------- | ---------------------------------------- |
+| `POST` | `/track/landing-event`          | Track welcome page CTA click             |
+| `GET`  | `/track/landing-report`         | Authenticated landing analytics report   |
+| `GET`  | `/app/analytics`                | In-app analytics dashboard (Inertia page)|
+
 ## Test Coverage
 
-**41 tests · 115 assertions · 0 failures:**
+Current suite includes extensive Feature and Unit coverage across Membership, Invitations, Projects, Tasks, Billing, Activity Logs, Audit Logs, and tracking/reporting flows.
 
-| File                                                         | Coverage                                   |
-| ------------------------------------------------------------ | ------------------------------------------ |
-| `tests/Feature/SaaS/MembershipPolicyTest.php`                | Role-based access, member limits           |
-| `tests/Feature/SaaS/InvitationWorkflowTest.php`              | Full invite → accept flow, edge cases      |
-| `tests/Feature/SaaS/ProjectTenantIsolationTest.php`          | Cross-tenant isolation, CRUD authorization |
-| `tests/Feature/SaaS/BillingFlowTest.php`                     | Subscribe, swap, cancel, Stripe webhooks   |
-| `tests/Feature/SaaS/BillingAuthorizationConstraintsTest.php` | Plan constraints, downgrade blocking       |
-| `tests/Feature/SaaS/UsageCounterTrackingTest.php`            | Counter increments, rate limit enforcement |
-| `tests/Feature/SaaS/ApiTokenManagementTest.php`              | Token CRUD, cross-user revoke protection   |
-| `tests/Feature/SaaS/BillingUsageDashboardTest.php`           | Usage endpoint response structure, auth    |
-| `tests/Feature/SaaS/AuditLogFlowTest.php`                    | Audit record creation from domain events   |
+| File | Coverage |
+| --- | --- |
+| `tests/Feature/SaaS/MembershipPolicyTest.php` | Role-based access, member limits |
+| `tests/Feature/SaaS/InvitationWorkflowTest.php` | Full invite -> accept flow, edge cases |
+| `tests/Feature/SaaS/ProjectTenantIsolationTest.php` | Cross-tenant isolation, CRUD authorization |
+| `tests/Feature/SaaS/TaskTest.php` | Task CRUD, filters, tenant isolation |
+| `tests/Feature/SaaS/BillingFlowTest.php` | Subscribe, swap, cancel, Stripe webhooks |
+| `tests/Feature/SaaS/BillingAuthorizationConstraintsTest.php` | Plan constraints, downgrade blocking |
+| `tests/Feature/SaaS/UsageCounterTrackingTest.php` | Counter increments, rate limit enforcement |
+| `tests/Feature/SaaS/ApiTokenManagementTest.php` | Token CRUD, cross-user revoke protection |
+| `tests/Feature/SaaS/BillingUsageDashboardTest.php` | Usage endpoint response structure, auth |
+| `tests/Feature/SaaS/AuditLogFlowTest.php` | Audit record creation from domain events |
+| `tests/Feature/Web/LandingEventTrackingTest.php` | Landing CTA event ingestion |
+| `tests/Feature/Web/LandingEventReportTest.php` | Aggregated analytics report |
+| `tests/Feature/LandingAnalyticsPageTest.php` | Inertia analytics page route bootstrap |
 
 ## License
 

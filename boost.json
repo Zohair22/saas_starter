@@ -11,6 +11,8 @@
     "skills": [
         "cashier-stripe-development",
         "laravel-best-practices",
-        "configuring-horizon"
+        "configuring-horizon",
+        "echo-development",
+        "tailwindcss-development"
     ]
 }

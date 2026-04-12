@@ -17,6 +17,7 @@ class TenantRolePermissions
             TenantPermission::ManageInvitations->value,
             TenantPermission::ManageProjects->value,
             TenantPermission::ManageBilling->value,
+            TenantPermission::ManageTenantSettings->value,
         ],
         MembershipRole::Admin->value => [
             TenantPermission::ViewMemberships->value,
@@ -24,6 +25,7 @@ class TenantRolePermissions
             TenantPermission::ManageInvitations->value,
             TenantPermission::ManageProjects->value,
             TenantPermission::ManageBilling->value,
+            TenantPermission::ManageTenantSettings->value,
         ],
         MembershipRole::Member->value => [
             TenantPermission::ViewMemberships->value,
@@ -44,5 +46,21 @@ class TenantRolePermissions
         }
 
         return $roles;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function permissionsForRole(MembershipRole|string|null $role): array
+    {
+        $normalizedRole = $role instanceof MembershipRole
+            ? $role->value
+            : (is_string($role) ? $role : null);
+
+        if (! $normalizedRole) {
+            return [];
+        }
+
+        return self::MATRIX[$normalizedRole] ?? [];
     }
 }

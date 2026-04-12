@@ -9,4 +9,5 @@ enum TenantPermission: string
     case ManageInvitations = 'manage_invitations';
     case ManageProjects = 'manage_projects';
     case ManageBilling = 'manage_billing';
+    case ManageTenantSettings = 'manage_tenant_settings';
 }

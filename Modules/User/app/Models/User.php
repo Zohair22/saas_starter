@@ -14,7 +14,7 @@ use Modules\Membership\Models\Membership;
 use Modules\Tenant\Models\Tenants;
 use Modules\User\Database\Factories\UserFactory;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'is_super_admin'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -31,6 +31,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_super_admin' => 'bool',
         ];
     }
 

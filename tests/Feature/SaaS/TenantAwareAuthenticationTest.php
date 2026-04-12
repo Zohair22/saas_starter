@@ -53,6 +53,10 @@ class TenantAwareAuthenticationTest extends TestCase
             ->withHeader('X-Tenant-ID', (string) $tenant->id)
             ->getJson('/api/v1/memberships');
 
-        $response->assertOk();
+        $response->assertOk()
+            ->assertJsonPath('meta.capabilities.is_tenant_member', true)
+            ->assertJsonPath('meta.capabilities.can_view_memberships', true)
+            ->assertJsonPath('meta.capabilities.can_manage_projects', false)
+            ->assertJsonPath('meta.capabilities.can_manage_billing', false);
     }
 }

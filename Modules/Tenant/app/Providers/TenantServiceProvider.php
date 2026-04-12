@@ -3,10 +3,16 @@
 namespace Modules\Tenant\Providers;
 
 // use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Gate;
+use Modules\Membership\Enums\TenantPermission;
+use Modules\Membership\Models\Membership;
+use Modules\Membership\Support\TenantRolePermissions;
 use Modules\Tenant\Interfaces\Contracts\TenantRepositoryInterface;
 use Modules\Tenant\Interfaces\Contracts\TenantServiceInterface;
+use Modules\Tenant\Models\Tenants;
 use Modules\Tenant\Repositories\TenantRepository;
 use Modules\Tenant\Services\TenantService;
+use Modules\User\Models\User;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class TenantServiceProvider extends ModuleServiceProvider
@@ -57,5 +63,36 @@ class TenantServiceProvider extends ModuleServiceProvider
 
         $this->app->bind(TenantRepositoryInterface::class, TenantRepository::class);
         $this->app->bind(TenantServiceInterface::class, TenantService::class);
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Gate::define('manageTenantSettings', function (User $user, Tenants $tenant): bool {
+            $membership = Membership::query()
+                ->withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (! $membership) {
+                return false;
+            }
+
+            return in_array(
+                $membership->role->value,
+                TenantRolePermissions::rolesWithPermission(TenantPermission::ManageTenantSettings),
+                true,
+            );
+        });
+
+        Gate::define('deleteTenant', function (User $user, Tenants $tenant): bool {
+            return (int) $tenant->owner_id === (int) $user->id;
+        });
+
+        Gate::define('transferOwnership', function (User $user, Tenants $tenant): bool {
+            return (int) $tenant->owner_id === (int) $user->id;
+        });
     }
 }

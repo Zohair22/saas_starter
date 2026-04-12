@@ -25,7 +25,14 @@ class ProjectController extends Controller
         $this->authorize('viewAny', Project::class);
 
         $tenantId = (int) data_get(request()->attributes->get('tenant'), 'id');
-        $projects = $this->projectService->listForTenant($tenantId);
+        $validated = request()->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'sort' => ['nullable', 'in:updated_desc,updated_asc,name_asc,name_desc'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $projects = $this->projectService->listForTenant($tenantId, $validated);
 
         return ProjectResource::collection($projects);
     }

@@ -2,6 +2,7 @@
 
 namespace Modules\Task\Repositories;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Modules\Task\Classes\DTOs\CreateTaskData;
 use Modules\Task\Classes\DTOs\UpdateTaskData;
@@ -10,13 +11,47 @@ use Modules\Task\Models\Task;
 
 class TaskRepository implements TaskRepositoryInterface
 {
-    public function listForProject(int $projectId): Collection
+    public function listForProject(int $projectId, array $filters = []): Collection|LengthAwarePaginator
     {
-        return Task::query()
+        $query = Task::query()
             ->where('project_id', $projectId)
             ->with(['creator:id,name,email', 'assignee:id,name,email'])
-            ->latest()
-            ->get();
+            ->where('tenant_id', (int) data_get(request()->attributes->get('tenant'), 'id'));
+
+        $search = trim((string) ($filters['q'] ?? ''));
+
+        if ($search !== '') {
+            $query->where(function ($builder) use ($search): void {
+                $builder
+                    ->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', (string) $filters['status']);
+        }
+
+        if (! empty($filters['priority'])) {
+            $query->where('priority', (string) $filters['priority']);
+        }
+
+        match ((string) ($filters['sort'] ?? 'updated_desc')) {
+            'updated_asc' => $query->orderBy('updated_at'),
+            'due_asc' => $query->orderBy('due_at'),
+            'due_desc' => $query->orderByDesc('due_at'),
+            default => $query->orderByDesc('updated_at'),
+        };
+
+        $perPage = isset($filters['per_page']) ? (int) $filters['per_page'] : null;
+
+        if ($perPage !== null && $perPage > 0) {
+            $page = max((int) ($filters['page'] ?? 1), 1);
+
+            return $query->paginate($perPage, ['*'], 'page', $page)->withQueryString();
+        }
+
+        return $query->get();
     }
 
     public function create(CreateTaskData $data): Task

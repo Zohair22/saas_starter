@@ -1,0 +1,34 @@
+<?php
+
+namespace Modules\User\Notifications;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Notification;
+
+class WorkspaceEventNotification extends Notification
+{
+    use Queueable;
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function __construct(
+        private readonly array $payload,
+    ) {}
+
+    /**
+     * @return list<string>
+     */
+    public function via(object $notifiable): array
+    {
+        return ['database', 'broadcast'];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        return $this->payload;
+    }
+}

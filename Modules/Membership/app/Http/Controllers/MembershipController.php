@@ -31,6 +31,7 @@ class MembershipController extends Controller
         return MembershipResource::collection($memberships)
             ->additional(['meta' => [
                 'current_membership' => MembershipResource::make(CurrentMembershipService::get()),
+                'capabilities' => CurrentMembershipService::capabilitiesFor(request()->user()),
             ]]);
     }
 

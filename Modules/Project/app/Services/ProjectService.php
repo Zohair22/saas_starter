@@ -2,6 +2,7 @@
 
 namespace Modules\Project\Services;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Modules\Project\Classes\DTOs\CreateProjectData;
 use Modules\Project\Classes\DTOs\UpdateProjectData;
@@ -19,9 +20,9 @@ class ProjectService implements ProjectServiceInterface
         private readonly ProjectRepositoryInterface $projectRepository,
     ) {}
 
-    public function listForTenant(int $tenantId): Collection
+    public function listForTenant(int $tenantId, array $filters = []): Collection|LengthAwarePaginator
     {
-        return $this->projectRepository->listForTenant($tenantId);
+        return $this->projectRepository->listForTenant($tenantId, $filters);
     }
 
     public function create(CreateProjectData $data, User $actor): Project
